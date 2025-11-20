@@ -1,1 +1,111 @@
 /// <reference types="vite/client" />
+
+interface DirectoryTreeNode {
+  name: string;
+  path: string;
+  images: string[];
+  children: DirectoryTreeNode[];
+}
+
+interface FileSystemItem {
+  path: string;
+  name: string;
+  type: "directory" | "file";
+  extension?: string;
+  size: number;
+  modifiedAt: number;
+  createdAt: number;
+  isHidden: boolean;
+}
+
+interface DirectoryReadResult {
+  path: string;
+  items: FileSystemItem[];
+}
+
+interface DirectoryReadOptions {
+  includeHidden?: boolean;
+  filter?: "all" | "images";
+}
+
+interface SystemDirectory {
+  id: string;
+  name: string;
+  path: string;
+}
+
+interface ImageFolderSelection {
+  directory: string;
+  images: string[];
+  tree: DirectoryTreeNode | null;
+}
+
+interface DirectoryDialogOptions {
+  title?: string;
+}
+
+interface DirectoryChangePayload {
+  directory: string;
+  event: string;
+  targetPath?: string;
+}
+
+type ThemeMode = "light" | "dark";
+
+interface FileSystemAPI {
+  readDirectory: (
+    path: string,
+    options?: DirectoryReadOptions
+  ) => Promise<DirectoryReadResult>;
+  getSystemDirectories: () => Promise<SystemDirectory[]>;
+  watchDirectory: (
+    path: string,
+    handler: (payload: DirectoryChangePayload) => void
+  ) => () => void;
+}
+
+interface FavoriteEntry {
+  id: string;
+  name: string;
+  path: string;
+  addedAt: number;
+}
+
+interface FavoritesAPI {
+  list: () => Promise<FavoriteEntry[]>;
+  add: (path: string, name?: string) => Promise<FavoriteEntry[]>;
+  remove: (id: string) => Promise<FavoriteEntry[]>;
+}
+
+interface FileOperationsAPI {
+  delete: (paths: string[]) => Promise<void>;
+  reveal: (path: string) => Promise<void>;
+  rename: (path: string, newName: string) => Promise<string | void>;
+  export: (paths: string[], destination: string) => Promise<string[] | void>;
+  move: (paths: string[], destination: string) => Promise<string[] | void>;
+  copy: (paths: string[], destination: string) => Promise<string[] | void>;
+}
+
+interface ThemeAPI {
+  get: () => Promise<ThemeMode>;
+  onDidChange: (handler: (mode: ThemeMode) => void) => () => void;
+}
+
+interface ElectronAPI {
+  toggleFullscreen: () => void;
+  selectImages: () => Promise<string[]>;
+  selectFolder: () => Promise<ImageFolderSelection | null>;
+  selectDirectory: (options?: DirectoryDialogOptions) => Promise<string | null>;
+  fs: FileSystemAPI;
+  favorites: FavoritesAPI;
+  fileOps: FileOperationsAPI;
+  theme: ThemeAPI;
+}
+
+declare global {
+  interface Window {
+    electron?: ElectronAPI;
+  }
+}
+
+export {};

@@ -1,5 +1,6 @@
 import {resolveModuleExportNames} from 'mlly';
 import {getChromeMajorVersion} from '@app/electron-versions';
+import path from 'node:path';
 
 export default /**
  * @type {import('vite').UserConfig}
@@ -26,6 +27,13 @@ export default /**
     },
     emptyOutDir: true,
     reportCompressedSize: false,
+  },
+  resolve: {
+    alias: {
+      '@app/main': path.resolve(__dirname, '../main'),
+      '@app/preload': path.resolve(__dirname, '../preload'),
+      '@app/renderer': path.resolve(__dirname, '../renderer'),
+    },
   },
   plugins: [mockExposed(), handleHotReload()],
 });

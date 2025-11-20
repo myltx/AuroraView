@@ -1,0 +1,20 @@
+export const IPC_CHANNELS = {
+  FS_READ_DIRECTORY: "fs:read-directory",
+  FS_GET_SYSTEM_DIRECTORIES: "fs:get-system-directories",
+  FAVORITES_LIST: "favorites:list",
+  FAVORITES_ADD: "favorites:add",
+  FAVORITES_REMOVE: "favorites:remove",
+  FILEOPS_DELETE: "fileops:delete",
+  FILEOPS_REVEAL: "fileops:reveal",
+  FILEOPS_RENAME: "fileops:rename",
+  FILEOPS_EXPORT: "fileops:export",
+  FILEOPS_MOVE: "fileops:move",
+  FILEOPS_COPY: "fileops:copy",
+  FS_WATCH_DIRECTORY: "fs:watch-directory",
+  FS_UNWATCH_DIRECTORY: "fs:unwatch-directory",
+  FS_DIRECTORY_CHANGED: "fs:directory-changed",
+  THEME_GET: "theme:get",
+  THEME_UPDATED: "theme:updated",
+} as const;
+
+export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

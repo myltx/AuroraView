@@ -35,6 +35,18 @@ export class AutoUpdater implements AppModule {
 
   async runAutoUpdater() {
     const updater = this.getAutoUpdater();
+    const log = (...args: unknown[]) => console.log("[AutoUpdater]", ...args);
+
+    updater.on('checking-for-update', () => log('Checking for update...'));
+    updater.on('update-available', info => log('Update available', info?.version ?? 'unknown'));
+    updater.on('update-not-available', () => log('No update available'));
+    updater.on('error', error => console.error('[AutoUpdater] error', error));
+    updater.on('download-progress', progress => log('Download progress', {
+      percent: Math.round(progress.percent),
+      bytesPerSecond: Math.round(progress.bytesPerSecond),
+    }));
+    updater.on('update-downloaded', info => log('Update downloaded, will install on quit', info?.version));
+
     try {
       updater.logger = this.#logger || null;
       updater.fullChangelog = true;

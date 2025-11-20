@@ -1,14 +1,20 @@
 import { ref } from "vue";
 
-export function useSlideshow(count: number) {
+export function useSlideshow(interval = 3000) {
   const playing = ref(false);
-  let timer: any;
+  let timer: ReturnType<typeof setInterval> | null = null;
 
   function start(onNext: () => void) {
-    timer = setInterval(() => onNext(), 3000);
+    stop();
+    timer = setInterval(onNext, interval);
   }
+
   function stop() {
-    clearInterval(timer);
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
   }
+
   return { playing, start, stop };
 }

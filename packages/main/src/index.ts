@@ -8,6 +8,12 @@ import { autoUpdater } from "./modules/AutoUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { setupImageSelector } from "./modules/ImageSelector.js";
+import { createFileSystemModule } from "./modules/FileSystemModule.js";
+import { createLocalFileProtocolModule } from "./modules/LocalFileProtocol.js";
+import { createFavoritesModule } from "./modules/FavoritesModule.js";
+import { createFileOperationsModule } from "./modules/FileOperationsModule.js";
+import { createDirectoryWatcherModule } from "./modules/DirectoryWatcherModule.js";
+import { createSystemThemeModule } from "./modules/SystemThemeModule.js";
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
@@ -17,6 +23,11 @@ export async function initApp(initConfig: AppInitConfig) {
         openDevTools: import.meta.env.DEV,
       })
     )
+    .init(createFileSystemModule())
+    .init(createFavoritesModule())
+    .init(createFileOperationsModule())
+    .init(createDirectoryWatcherModule())
+    .init(createSystemThemeModule())
     .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())
     .init(hardwareAccelerationMode({ enable: false }))
@@ -51,7 +62,8 @@ export async function initApp(initConfig: AppInitConfig) {
             : []
         )
       )
-    );
+    )
+    .init(createLocalFileProtocolModule());
 
   await moduleRunner;
   setupImageSelector();
