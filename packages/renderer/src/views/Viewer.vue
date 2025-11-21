@@ -1,125 +1,236 @@
 <template>
   <div class="viewer">
     <header class="viewer-unified-toolbar">
-      <div class="toolbar-section toolbar-section--left">
-        <button
-          class="toolbar-icon-btn"
-          title="打开目录"
-          @click="openDirectoryPicker">
-          📂
-        </button>
-        <button
-          class="toolbar-icon-btn"
-          title="刷新收藏与系统目录"
-          @click="bootstrapSidebar">
-          🔄
-        </button>
-        <button
-          class="toolbar-icon-btn"
-          :disabled="!canAddFavorite"
-          title="将当前目录加入收藏"
-          @click="addCurrentToFavorites">
-          ⭐
-        </button>
-        <span class="toolbar-divider"></span>
-        <div class="toolbar-form">
-          <label class="toolbar-label">缩略图尺寸</label>
-          <input
-            class="toolbar-slider"
-            type="range"
-            min="80"
-            max="220"
-            step="10"
-            :disabled="!hasImages"
-            v-model.number="thumbnailSize" />
-        </div>
-        <div class="toolbar-form">
-          <label class="toolbar-label">排序</label>
-          <select
-            class="toolbar-select"
-            v-model="sortMode"
-            :disabled="!hasImages">
-            <option value="name-asc">名称 A→Z</option>
-            <option value="name-desc">名称 Z→A</option>
-            <option value="modified-desc">最近修改</option>
-            <option value="size-desc">文件大小</option>
-          </select>
-        </div>
-      </div>
-      <div class="toolbar-section toolbar-section--center">
-        <label class="toolbar-label">搜索</label>
-        <input
-          class="toolbar-search"
-          v-model="searchKeyword"
-          type="text"
-          placeholder="输入文件名"
-          :disabled="!hasImages" />
-      </div>
+      <div class="toolbar-traffic-space" aria-hidden="true"></div>
+      <div class="toolbar-section toolbar-section--left"></div>
+      <div class="toolbar-section toolbar-section--center"></div>
       <div class="toolbar-section toolbar-section--right">
-        <span class="toolbar-count">
-          {{ hasImages ? `共 ${galleryCount} 张` : "未加载目录" }}
-        </span>
-        <div v-if="hasSelection" class="toolbar-selection">
+        <div
+          class="toolbar-dropdown toolbar-dropdown--sort toolbar-interactive"
+          :class="{ 'is-open': sortMenuOpen }"
+          ref="sortMenuRef">
+          <button
+            class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
+            :disabled="!hasImages"
+            aria-label="排序"
+            @click="toggleSortMenu">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="TOOLBAR_ICONS.sort" />
+            </svg>
+          </button>
+          <div
+            v-if="sortMenuOpen"
+            class="toolbar-dropdown__menu"
+            role="menu">
+            <button
+              v-for="option in sortOptions"
+              :key="option.value"
+              class="toolbar-dropdown__item"
+              role="menuitemradio"
+              :aria-checked="sortMode === option.value"
+              @click="() => selectSort(option.value)">
+              <span class="toolbar-dropdown__check">
+                {{ sortMode === option.value ? "✓" : "" }}
+              </span>
+              <span class="toolbar-dropdown__label">{{ option.label }}</span>
+            </button>
+          </div>
+        </div>
+        <div
+          v-if="hasSelection"
+          class="toolbar-selection toolbar-selection--dropdown"
+          ref="actionsMenuRef">
           <span class="toolbar-count toolbar-count--selected">
             已选 {{ selectedCount }} 张
           </span>
-          <div class="toolbar-action-buttons">
+          <div class="toolbar-dropdown" :class="{ 'is-open': actionsMenuOpen }">
             <button
-              class="viewer-toolbar__icon-btn has-tooltip"
+              class="toolbar-dropdown__trigger toolbar-interactive"
               :disabled="!hasSelection"
-              @click="copySelectedPaths"
-              title="复制路径"
-              data-tooltip="复制路径 (⌘C)">
-              ⧉
+              @click="toggleActionsMenu">
+              操作
+              <span class="toolbar-dropdown__chevron">⌄</span>
             </button>
+            <div
+              v-if="actionsMenuOpen"
+              class="toolbar-dropdown__menu"
+              role="menu">
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="!hasSelection"
+                @click="() => runAndClose(copySelectedPaths)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M7 4h9a2 2 0 0 1 2 2v11H9a2 2 0 0 1-2-2V4zm2 2v9h7V6H9zm-3 1v9H5a2 2 0 0 1-2-2V7h3z" />
+                  </svg>
+                </span>
+                复制路径
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="selectedCount !== 1"
+                @click="() => runAndClose(revealSelected)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M11 5a7 7 0 0 1 5.6 2.8L20 5.4 21.4 6.8 18.7 9.5A7 7 0 1 1 11 5zm0 2a5 5 0 1 0 3.9 8.1l1.2 1.2 1.4-1.4-1.2-1.2A5 5 0 0 0 11 7zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" />
+                  </svg>
+                </span>
+                显示原文件
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="selectedCount !== 1"
+                @click="() => runAndClose(renameSelected)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M5 17.5V21h3.5l9.2-9.2-3.5-3.5L5 17.5zm12.1-8.6 1.4-1.4-2.5-2.5-1.4 1.4 2.5 2.5z" />
+                  </svg>
+                </span>
+                重命名
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="!hasSelection"
+                @click="() => runAndClose(copySelectedToDirectory)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 6h5l2 2h9v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 4v8h14v-8H4zm7.5 1.5 1.5 1.5H11v3h-2v-3H7.5l1.5-1.5L11 9l0 2.5z" />
+                  </svg>
+                </span>
+                复制到目录
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="!hasSelection"
+                @click="() => runAndClose(moveSelectedToDirectory)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 6h5l2 2h9v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 4v8h14v-8H4zm4 1h2.5V9l3.5 3-3.5 3v-2H8v-2z" />
+                  </svg>
+                </span>
+                移动到目录
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                :disabled="!hasSelection"
+                @click="() => runAndClose(exportSelected)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M11 3h2v8.1l2.95-2.95L17.4 9.6 12 15 6.6 9.6 8.05 8.15 11 11.1V3zM5 17h14v2H5z" />
+                  </svg>
+                </span>
+                导出
+              </button>
+              <button
+                class="toolbar-dropdown__item toolbar-dropdown__item--danger"
+                role="menuitem"
+                :disabled="!hasSelection"
+                @click="() => runAndClose(deleteSelected)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M9 4h6l1 2h4v2h-2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8H3V6h4l1-2zm0 4v10h6V8H9z" />
+                  </svg>
+                </span>
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+        <div
+          v-if="lightboxVisible"
+          class="toolbar-selection toolbar-selection--dropdown"
+          ref="viewerMenuRef">
+          <div class="toolbar-dropdown" :class="{ 'is-open': viewerMenuOpen }">
             <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="selectedCount !== 1"
-              @click="revealSelected"
-              title="在 Finder 中显示"
-              data-tooltip="在 Finder 中显示">
-              🔍
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon toolbar-interactive"
+              :disabled="!lightboxVisible"
+              aria-label="查看器操作"
+              @click="toggleViewerMenu">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.viewer" />
+              </svg>
             </button>
-            <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="selectedCount !== 1"
-              @click="renameSelected"
-              title="重命名"
-              data-tooltip="重命名">
-              📝
-            </button>
-            <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="!hasSelection"
-              @click="copySelectedToDirectory"
-              title="复制到其他目录 (⌘⇧C)"
-              data-tooltip="复制到目录 (⌘⇧C)">
-              📂
-            </button>
-            <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="!hasSelection"
-              @click="moveSelectedToDirectory"
-              title="移动到其他目录 (⌘⇧M)"
-              data-tooltip="移动到目录 (⌘⇧M)">
-              📦
-            </button>
-            <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="!hasSelection"
-              @click="exportSelected"
-              title="导出到目录"
-              data-tooltip="导出到目录">
-              📤
-            </button>
-            <button
-              class="viewer-toolbar__icon-btn has-tooltip"
-              :disabled="!hasSelection"
-              @click="deleteSelected"
-              title="删除（移动到废纸篓）"
-              data-tooltip="删除 (Delete)">
-              🗑️
-            </button>
+            <div
+              v-if="viewerMenuOpen"
+              class="toolbar-dropdown__menu"
+              role="menu">
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(zoomIn)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.zoomIn" />
+                  </svg>
+                </span>
+                放大
+              </button>
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(zoomOut)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.zoomOut" />
+                  </svg>
+                </span>
+                缩小
+              </button>
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(resetLightboxView)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.reset" />
+                  </svg>
+                </span>
+                基于窗口
+              </button>
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(rotate)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.rotate" />
+                  </svg>
+                </span>
+                旋转
+              </button>
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(toggleFlipX)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.flipX" />
+                  </svg>
+                </span>
+                水平翻转
+              </button>
+              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(toggleFlipY)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.flipY" />
+                  </svg>
+                </span>
+                垂直翻转
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                @click="() => runViewerAction(toggleSlideshow)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
+                  </svg>
+                </span>
+                {{ playing ? "暂停幻灯片" : "播放幻灯片" }}
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitem"
+                @click="() => runViewerAction(toggleFullscreen)">
+                <span class="toolbar-dropdown__icon">
+                  <svg viewBox="0 0 24 24">
+                    <path :d="TOOLBAR_ICONS.fullscreen" />
+                  </svg>
+                </span>
+                切换全屏
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -127,107 +238,287 @@
 
     <div class="viewer-body">
       <aside class="viewer-sidebar">
-      <div class="viewer-sidebar__card">
-        <div class="sidebar-card__title">
-          <span>当前目录</span>
-          <p>当前所选路径</p>
-        </div>
-        <div class="viewer-sidebar__current">
-          <p class="viewer-sidebar__label">路径</p>
-          <p class="viewer-sidebar__path">{{ currentDirectoryLabel }}</p>
-        </div>
-      </div>
-
-      <div class="viewer-sidebar__card viewer-sidebar__card--tree">
-        <div class="sidebar-card__header">
-          <div class="sidebar-card__title">
-            <span>收藏夹</span>
-            <p>常用目录</p>
-          </div>
+        <div class="sidebar-utility">
           <button
-            class="viewer-sidebar__icon-btn"
+            class="sidebar-utility__btn"
+            title="打开目录"
+            @click="openDirectoryPicker">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="SIDEBAR_ICONS.folder" />
+            </svg>
+          </button>
+          <button
+            class="sidebar-utility__btn"
+            title="刷新目录"
+            @click="bootstrapSidebar">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="SIDEBAR_ICONS.refresh" />
+            </svg>
+          </button>
+          <button
+            class="sidebar-utility__btn"
             :disabled="!canAddFavorite"
-            @click="addCurrentToFavorites"
-            title="将当前目录添加到收藏">
-            ＋
+            title="收藏当前目录"
+            @click="addCurrentToFavorites">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="SIDEBAR_ICONS.star" />
+            </svg>
           </button>
         </div>
-        <div v-if="flattenedFavorites.length" class="directory-tree">
-          <div
-            v-for="node in flattenedFavorites"
-            :key="node.path"
-            class="directory-tree__row"
-            :style="{ paddingLeft: `${node.depth * 16 + 8}px` }">
-            <button
-              v-if="node.isDirectory"
-              class="directory-tree__toggle"
-              @click.stop="toggleNode(node)">
-              {{ node.isExpanded ? "▾" : "▸" }}
-            </button>
-            <button
-              class="directory-tree__main"
-              :class="{
-                'is-active': node.path === activeNodePath,
-                'is-drop-target': dragOverPath === node.path,
-              }"
-              @click="selectNode(node)"
-              @dragenter.prevent="handleNodeDragEnter(node, $event)"
-              @dragover.prevent="handleNodeDragOver(node, $event)"
-              @dragleave="handleNodeDragLeave(node, $event)"
-              @drop.prevent="handleNodeDrop(node, $event)">
-              <span class="directory-tree__icon">⭐</span>
-              <span class="directory-tree__name">{{ node.name }}</span>
-            </button>
-            <button
-              v-if="node.favoriteId"
-              class="directory-tree__action"
-              title="移除收藏"
-              @click.stop="removeFavorite(node.favoriteId)">
-              ✕
-            </button>
-          </div>
-        </div>
-        <p v-else class="viewer-sidebar__empty">暂无收藏，点击上方按钮添加</p>
-      </div>
+        <nav class="sidebar-groups">
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <button
+                type="button"
+                class="sidebar-group__label"
+                @click="toggleGroup('favorites')">
+                <svg
+                  class="sidebar-group__chevron"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ open: groupState.favorites }">
+                  <path :d="SIDEBAR_ICONS.chevron" />
+                </svg>
+                收藏夹
+              </button>
+              <button
+                class="sidebar-header-btn"
+                :disabled="!canAddFavorite"
+                title="添加收藏"
+                @click="addCurrentToFavorites">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.plus" />
+                </svg>
+              </button>
+            </header>
+            <ul
+              v-show="groupState.favorites"
+              class="sidebar-list"
+              role="list">
+              <li
+                v-for="node in flattenedFavorites"
+                :key="node.path"
+                class="sidebar-list__item">
+                <div
+                  class="sidebar-item-row"
+                  :style="{ '--sidebar-indent': `${node.depth * 14}px` }">
+                  <button
+                    v-if="node.isDirectory"
+                    class="sidebar-item__toggle"
+                    :class="{ open: node.isExpanded }"
+                    @click.stop="toggleNode(node)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.chevron" />
+                    </svg>
+                  </button>
+                  <button
+                    class="sidebar-item"
+                    :class="{
+                      'is-active': node.path === activeNodePath,
+                      'is-drop-target': dragOverPath === node.path,
+                    }"
+                    @click="selectNode(node)"
+                    @dragenter.prevent="handleNodeDragEnter(node, $event)"
+                    @dragover.prevent="handleNodeDragOver(node, $event)"
+                    @dragleave="handleNodeDragLeave(node, $event)"
+                    @drop.prevent="handleNodeDrop(node, $event)">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.star" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">{{ node.name }}</span>
+                  </button>
+                  <button
+                    v-if="node.favoriteId"
+                    class="sidebar-item__action"
+                    title="移除收藏"
+                    @click.stop="removeFavorite(node.favoriteId)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.close" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!flattenedFavorites.length" class="sidebar-empty">
+              还没有收藏，点击上方按钮添加
+            </p>
+          </section>
 
-      <div class="viewer-sidebar__card viewer-sidebar__card--tree">
-        <div class="sidebar-card__header">
-          <div class="sidebar-card__title">
-            <span>系统目录</span>
-            <p>常用工作区</p>
-          </div>
-        </div>
-        <div v-if="flattenedSystem.length" class="directory-tree">
-          <div
-            v-for="node in flattenedSystem"
-            :key="node.path"
-            class="directory-tree__row"
-            :style="{ paddingLeft: `${node.depth * 16 + 8}px` }">
-            <button
-              v-if="node.isDirectory"
-              class="directory-tree__toggle"
-              @click.stop="toggleNode(node)">
-              {{ node.isExpanded ? "▾" : "▸" }}
-            </button>
-            <button
-              class="directory-tree__main"
-              :class="{
-                'is-active': node.path === activeNodePath,
-                'is-drop-target': dragOverPath === node.path,
-              }"
-              @click="selectNode(node)"
-              @dragenter.prevent="handleNodeDragEnter(node, $event)"
-              @dragover.prevent="handleNodeDragOver(node, $event)"
-              @dragleave="handleNodeDragLeave(node, $event)"
-              @drop.prevent="handleNodeDrop(node, $event)">
-              <span class="directory-tree__icon">📁</span>
-              <span class="directory-tree__name">{{ node.name }}</span>
-            </button>
-          </div>
-        </div>
-        <p v-else class="viewer-sidebar__empty">未发现系统目录</p>
-      </div>
-  </aside>
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <button
+                type="button"
+                class="sidebar-group__label"
+                @click="toggleGroup('system')">
+                <svg
+                  class="sidebar-group__chevron"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ open: groupState.system }">
+                  <path :d="SIDEBAR_ICONS.chevron" />
+                </svg>
+                系统目录
+              </button>
+            </header>
+            <ul
+              v-show="groupState.system"
+              class="sidebar-list"
+              role="list">
+              <li
+                v-for="node in flattenedSystem"
+                :key="node.path"
+                class="sidebar-list__item">
+                <div
+                  class="sidebar-item-row"
+                  :style="{ '--sidebar-indent': `${node.depth * 14}px` }">
+                  <button
+                    v-if="node.isDirectory"
+                    class="sidebar-item__toggle"
+                    :class="{ open: node.isExpanded }"
+                    @click.stop="toggleNode(node)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.chevron" />
+                    </svg>
+                  </button>
+                  <button
+                    class="sidebar-item"
+                    :class="{
+                      'is-active': node.path === activeNodePath,
+                      'is-drop-target': dragOverPath === node.path,
+                    }"
+                    @click="selectNode(node)"
+                    @dragenter.prevent="handleNodeDragEnter(node, $event)"
+                    @dragover.prevent="handleNodeDragOver(node, $event)"
+                    @dragleave="handleNodeDragLeave(node, $event)"
+                    @drop.prevent="handleNodeDrop(node, $event)">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.folder" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">{{ node.name }}</span>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!flattenedSystem.length" class="sidebar-empty">
+              未发现系统目录
+            </p>
+          </section>
+
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <button
+                type="button"
+                class="sidebar-group__label"
+                @click="toggleGroup('custom')">
+                <svg
+                  class="sidebar-group__chevron"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ open: groupState.custom }">
+                  <path :d="SIDEBAR_ICONS.chevron" />
+                </svg>
+                自定义目录
+              </button>
+              <button
+                class="sidebar-header-btn"
+                title="添加自定义目录"
+                @click="addCustomDirectory">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.plus" />
+                </svg>
+              </button>
+            </header>
+            <ul
+              v-show="groupState.custom"
+              class="sidebar-list"
+              role="list">
+              <li
+                v-for="node in flattenedCustom"
+                :key="node.path"
+                class="sidebar-list__item">
+                <div class="sidebar-item-row">
+                  <button
+                    class="sidebar-item"
+                    :class="{
+                      'is-active': node.path === activeNodePath,
+                      'is-drop-target': dragOverPath === node.path,
+                    }"
+                    @click="selectNode(node)"
+                    @dragenter.prevent="handleNodeDragEnter(node, $event)"
+                    @dragover.prevent="handleNodeDragOver(node, $event)"
+                    @dragleave="handleNodeDragLeave(node, $event)"
+                    @drop.prevent="handleNodeDrop(node, $event)">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.user" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">{{ node.name }}</span>
+                  </button>
+                  <button
+                    class="sidebar-item__action"
+                    title="移除目录"
+                    @click.stop="removeCustomDirectory(node.customId)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.close" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!flattenedCustom.length" class="sidebar-empty">
+              添加常用的工作目录以便快速访问
+            </p>
+          </section>
+
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <button
+                type="button"
+                class="sidebar-group__label"
+                @click="toggleGroup('recent')">
+                <svg
+                  class="sidebar-group__chevron"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ open: groupState.recent }">
+                  <path :d="SIDEBAR_ICONS.chevron" />
+                </svg>
+                最近使用
+              </button>
+            </header>
+            <ul
+              v-show="groupState.recent"
+              class="sidebar-list"
+              role="list">
+              <li
+                v-for="entry in recentList"
+                :key="entry.path"
+                class="sidebar-list__item">
+                <button
+                  class="sidebar-item"
+                  :class="{ 'is-active': entry.path === activeNodePath }"
+                  @click="openRecent(entry)">
+                  <span class="sidebar-item__icon">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.clock" />
+                    </svg>
+                  </span>
+                  <span class="sidebar-item__name">{{ entry.name }}</span>
+                </button>
+              </li>
+            </ul>
+            <p v-if="!recentList.length" class="sidebar-empty">
+              暂无记录
+            </p>
+          </section>
+
+        </nav>
+      </aside>
 
     <div class="viewer-main">
     <section class="viewer-workspace">
@@ -316,43 +607,22 @@
             :offset-y="offset.y"
             :is-interacting="isPanning" />
         </div>
-        <div class="viewer-lightbox__controls">
-          <button
-            class="control-button"
-            @click="toggleSlideshow"
-            :disabled="!canPlaySlideshow">
-            <span class="control-button__icon">
-              {{ playing ? "⏸️" : "▶️" }}
-            </span>
-          </button>
-          <button class="control-button" @click="prevImage" :disabled="galleryItems.length < 2">
-            <span class="control-button__icon">⬅️</span>
-          </button>
-          <button class="control-button" @click="nextImage" :disabled="galleryItems.length < 2">
-            <span class="control-button__icon">➡️</span>
-          </button>
-          <button class="control-button" @click="zoomOut">
-            <span class="control-button__icon">➖</span>
-          </button>
-          <button class="control-button" @click="zoomIn">
-            <span class="control-button__icon">➕</span>
-          </button>
-          <button class="control-button" @click="resetLightboxView">
-            <span class="control-button__icon">⤢</span>
-          </button>
-          <button class="control-button" @click="rotate">
-            <span class="control-button__icon">🔄</span>
-          </button>
-          <button class="control-button" @click="toggleFlipX">
-            <span class="control-button__icon">↔️</span>
-          </button>
-          <button class="control-button" @click="toggleFlipY">
-            <span class="control-button__icon">↕️</span>
-          </button>
-          <button class="control-button" @click="toggleFullscreen">
-            <span class="control-button__icon">⛶</span>
-          </button>
-        </div>
+        <button
+          class="viewer-lightbox__nav viewer-lightbox__nav--prev"
+          :disabled="galleryItems.length < 2"
+          @click="prevImage">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="SIDEBAR_ICONS.chevron" />
+          </svg>
+        </button>
+        <button
+          class="viewer-lightbox__nav viewer-lightbox__nav--next"
+          :disabled="galleryItems.length < 2"
+          @click="nextImage">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path :d="SIDEBAR_ICONS.chevron" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -389,13 +659,14 @@ type SidebarNode = {
   path: string;
   name: string;
   depth: number;
-  type: "system" | "favorite" | "directory";
+  type: "system" | "favorite" | "directory" | "custom" | "history";
   isDirectory: boolean;
   isExpanded: boolean;
   isLoading: boolean;
   hasLoadedChildren: boolean;
   children: SidebarNode[];
   favoriteId?: string;
+  customId?: string;
 };
 
 type GalleryItem = {
@@ -414,12 +685,49 @@ type ToastMessage = {
   message: string;
   variant: ToastVariant;
 };
+const SIDEBAR_ICONS: Record<string, string> = {
+  folder:
+    "M3.5 6.75h5.1l1.6 2.4h10.3c1.1 0 2 .9 2 2v8.1c0 1.1-.9 2-2 2H3.5c-1.1 0-2-.9-2-2V8.75c0-1.1.9-2 2-2z",
+  star:
+    "M12 4.5l2.5 4.9 5.4.8-3.9 3.8.9 5.5L12 16.8l-4.9 2.7.9-5.5-3.9-3.8 5.4-.8z",
+  clock:
+    "M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-.75 3.5v5.25L15 15.2l-.75 1.3-4.5-2.6V7.5z",
+  user:
+    "M12 6a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 7.5c3.2 0 5.5 1.7 5.5 3.6V18H6.5v-.9c0-1.9 2.3-3.6 5.5-3.6z",
+  plus: "M12 5v6H6v2h6v6h2v-6h6v-2h-6V5z",
+  refresh:
+    "M12 4a8 8 0 0 1 7.9 7.1H22l-3.3 3.9L15.5 11h2.1A6 6 0 1 0 18 13h2a8 8 0 1 1-8-9z",
+  chevron: "M9 6l6 6-6 6",
+  close:
+    "M8.5 8.5l6.9 6.9m0-6.9-6.9 6.9",
+};
+const TOOLBAR_ICONS = {
+  viewer:
+    "M6 7h3.2l1.2-1.5h3.2L14.8 7H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm6 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm0 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm5-1.5h-2v-1h2z",
+  sort:
+    "M8 5h8v2H8zm-2 4h12v2H6zm2 4h8v2H8z",
+  zoomIn:
+    "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-.75 2.5h1.5v1.75H13.5v1.5h-1.75V13.5h-1.5v-1.75H8.5v-1.5h1.75V8.5zM18.5 18.5l3 3-1.5 1.5-3-3z",
+  zoomOut:
+    "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-2.5 4.25h5v1.5h-5zM18.5 18.5l3 3-1.5 1.5-3-3z",
+  reset: "M12 5a7 7 0 1 1-6.8 5.3l2 0.4A5 5 0 1 0 12 7v2.5L8 6l4-3.5z",
+  rotate:
+    "M12 4a6 6 0 0 1 5.8 7.4l-1.9-.5A4 4 0 0 0 12 6v2L7.5 4.5 12 1v3zM6 12a6 6 0 0 0 9.5 4.9l1.1 1.6A8 8 0 1 1 6 5.1L7.2 6.7A6 6 0 0 0 6 12z",
+  flipX: "M5 6h14v2H5zm0 10h14v2H5zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z",
+  flipY: "M6 5h2v14H6zm10 0h2v14h-2zM9 7h6v2H9zm0 4h6v2H9zm0 4h6v2H9z",
+  play:
+    "M8.5 6.5l8 5.5-8 5.5v-11zM5 6h2v12H5z",
+  pause: "M7 6h3v12H7zm7 0h3v12h-3z",
+  fullscreen:
+    "M6 6h5v2H8v3H6zm10 0v5h-2V8h-3V6zm-3 10h3v-3h2v5h-5zm-4 0v2H6v-5h2v3z",
+};
+type RecentEntry = { path: string; name: string };
+type CustomEntry = { id: string; path: string; name: string };
 
 const imageList = ref<GalleryItem[]>([]);
 const currentIndex = ref(0);
-const thumbnailSize = ref(120);
+const THUMBNAIL_SIZE = 120;
 const sortMode = ref<SortMode>("name-asc");
-const searchKeyword = ref("");
 const activeNodePath = ref("");
 const lightboxVisible = ref(false);
 const lightboxDirection = ref<"none" | "forward" | "backward">("none");
@@ -433,10 +741,36 @@ const dragPayload = reactive({
   sourcePath: "",
 });
 const dragOverPath = ref<string | null>(null);
+const RECENT_STORAGE_KEY = "photon:sidebar:recents";
+const CUSTOM_STORAGE_KEY = "photon:sidebar:custom";
 const DRAG_MIME_TYPE = "application/x-photon-gallery";
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
 let toastSeed = 0;
+const actionsMenuOpen = ref(false);
+const actionsMenuRef = ref<HTMLElement | null>(null);
+const sortMenuOpen = ref(false);
+const sortMenuRef = ref<HTMLElement | null>(null);
+const recentDirectories = ref<RecentEntry[]>([]);
+const customEntries = ref<CustomEntry[]>([]);
+const customRoots = ref<SidebarNode[]>([]);
+const groupState = reactive({
+  favorites: true,
+  system: true,
+  recent: true,
+  custom: true,
+});
+const toggleGroup = (key: keyof typeof groupState) => {
+  groupState[key] = !groupState[key];
+};
+const viewerMenuOpen = ref(false);
+const viewerMenuRef = ref<HTMLElement | null>(null);
+const sortOptions: Array<{ value: SortMode; label: string }> = [
+  { value: "name-asc", label: "名称 A→Z" },
+  { value: "name-desc", label: "名称 Z→A" },
+  { value: "modified-desc", label: "最近修改" },
+  { value: "size-desc", label: "文件大小" },
+];
 
 const {
   scale,
@@ -473,15 +807,7 @@ const sortedItems = computed(() => {
   }
 });
 
-const galleryItems = computed(() => {
-  const keyword = searchKeyword.value.trim().toLowerCase();
-  if (!keyword) {
-    return sortedItems.value;
-  }
-  return sortedItems.value.filter((item) =>
-    item.name.toLowerCase().includes(keyword)
-  );
-});
+const galleryItems = computed(() => sortedItems.value);
 
 const hasImages = computed(() => galleryItems.value.length > 0);
 const canPlaySlideshow = computed(() => galleryItems.value.length > 1);
@@ -521,13 +847,14 @@ const canAddFavorite = computed(
 
 const flattenedFavorites = computed(() => flattenNodes(favoriteRoots.value));
 const flattenedSystem = computed(() => flattenNodes(systemRoots.value));
+const flattenedCustom = computed(() => flattenNodes(customRoots.value));
+const recentList = computed(() => recentDirectories.value);
 const currentDirectoryLabel = computed(
   () => currentNode.value?.path ?? "未选择目录"
 );
 const galleryStyle = computed(() => ({
-  "--thumb-size": `${thumbnailSize.value}px`,
+  "--thumb-size": `${THUMBNAIL_SIZE}px`,
 }));
-const galleryCount = computed(() => galleryItems.value.length);
 const canPan = computed(() => scale.value > 1.02);
 
 const galleryRef = ref<HTMLElement | null>(null);
@@ -546,16 +873,13 @@ const pointerState = reactive({
 let momentumFrame: number | null = null;
 let stopWatchingDirectory: (() => void) | null = null;
 const thumbnailCache = useThumbnailCache();
+let cleanupAppAction: (() => void) | null = null;
+let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
 
 const columns = computed(() =>
-  Math.max(
-    1,
-    Math.floor(
-      containerSize.width / Math.max(80, thumbnailSize.value + 10)
-    )
-  )
+  Math.max(1, Math.floor(containerSize.width / Math.max(80, THUMBNAIL_SIZE + 10)))
 );
-const rowHeight = computed(() => thumbnailSize.value + 10);
+const rowHeight = computed(() => THUMBNAIL_SIZE + 10);
 const totalRows = computed(() =>
   Math.ceil(galleryItems.value.length / columns.value)
 );
@@ -585,9 +909,42 @@ const bottomSpacer = computed(() =>
 );
 
 onMounted(async () => {
+  loadCustomDirectories();
+  loadRecentDirectories();
   await bootstrapSidebar();
   setupGalleryObservers();
   window.addEventListener("keydown", handleKeydown);
+  handleOutsideClick = (event: MouseEvent) => {
+    const target = event.target as Node;
+    if (actionsMenuOpen.value) {
+      const menuEl = actionsMenuRef.value;
+      if (menuEl && !menuEl.contains(target)) {
+        closeActionsMenu();
+      }
+    }
+    if (sortMenuOpen.value) {
+      const sortEl = sortMenuRef.value;
+      if (sortEl && !sortEl.contains(target)) {
+        closeSortMenu();
+      }
+    }
+    if (viewerMenuOpen.value) {
+      const viewerEl = viewerMenuRef.value;
+      if (viewerEl && !viewerEl.contains(target)) {
+        closeViewerMenu();
+      }
+    }
+  };
+  document.addEventListener("mousedown", handleOutsideClick);
+  if (window.electron?.onAction) {
+    cleanupAppAction = window.electron.onAction((payload) => {
+      if (payload.type === "open-directory") {
+        openDirectoryPicker();
+      } else if (payload.type === "refresh-directory") {
+        bootstrapSidebar();
+      }
+    });
+  }
 });
 
 onBeforeUnmount(() => {
@@ -597,23 +954,12 @@ onBeforeUnmount(() => {
   clearToastTimers();
   stopWatchingDirectory?.();
   stopWatchingDirectory = null;
-});
-
-watch(hasImages, async (value) => {
-  if (value) {
-    await nextTick();
-    destroyGalleryObservers();
-    setupGalleryObservers();
-  } else {
-    destroyGalleryObservers();
+  if (handleOutsideClick) {
+    document.removeEventListener("mousedown", handleOutsideClick);
+    handleOutsideClick = null;
   }
-});
-
-watch(thumbnailSize, async () => {
-  if (!hasImages.value) return;
-  await nextTick();
-  destroyGalleryObservers();
-  setupGalleryObservers();
+  cleanupAppAction?.();
+  cleanupAppAction = null;
 });
 
 watch(hasImages, async (value) => {
@@ -748,6 +1094,86 @@ async function loadFavorites() {
   );
 }
 
+function loadRecentDirectories() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const stored = localStorage.getItem(RECENT_STORAGE_KEY);
+    recentDirectories.value = stored ? JSON.parse(stored) : [];
+  } catch {
+    recentDirectories.value = [];
+  }
+}
+
+function saveRecentDirectories() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentDirectories.value));
+}
+
+function trackRecentDirectory(path: string, name: string) {
+  if (!path) return;
+  const entries = recentDirectories.value.filter((entry) => entry.path !== path);
+  entries.unshift({ path, name });
+  recentDirectories.value = entries.slice(0, 10);
+  saveRecentDirectories();
+}
+
+async function openRecent(entry: RecentEntry) {
+  await activateDirectory(entry);
+}
+
+function loadCustomDirectories() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const stored = localStorage.getItem(CUSTOM_STORAGE_KEY);
+    customEntries.value = stored ? JSON.parse(stored) : [];
+  } catch {
+    customEntries.value = [];
+  }
+  syncCustomNodes();
+}
+
+function saveCustomDirectories() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customEntries.value));
+}
+
+function syncCustomNodes() {
+  customRoots.value = customEntries.value.map((entry) =>
+    createNode({
+      path: entry.path,
+      name: entry.name,
+      depth: 0,
+      type: "custom",
+      favoriteId: undefined,
+      register: true,
+      reuseExisting: true,
+    })
+  );
+  customRoots.value.forEach((node) => {
+    const entry = customEntries.value.find((item) => item.path === node.path);
+    if (entry) {
+      node.customId = entry.id;
+    }
+  });
+}
+
+async function addCustomDirectory() {
+  const directory = await window.electron?.selectDirectory?.({ title: "添加自定义目录" });
+  if (!directory) return;
+  const name = extractName(directory);
+  const id = crypto.randomUUID?.() ?? `${Date.now()}`;
+  customEntries.value = [{ id, path: directory, name }, ...customEntries.value.filter((entry) => entry.path !== directory)];
+  saveCustomDirectories();
+  syncCustomNodes();
+}
+
+function removeCustomDirectory(id?: string) {
+  if (!id) return;
+  customEntries.value = customEntries.value.filter((entry) => entry.id !== id);
+  saveCustomDirectories();
+  syncCustomNodes();
+}
+
 function flattenNodes(nodes: SidebarNode[]) {
   const result: SidebarNode[] = [];
 
@@ -793,9 +1219,7 @@ async function loadChildren(node: SidebarNode) {
 }
 
 async function selectNode(node: SidebarNode) {
-  activeNodePath.value = node.path;
-  await loadImagesForDirectory(node.path);
-  subscribeDirectoryWatcher(node.path);
+  await activateDirectory(node);
 }
 
 async function loadImagesForDirectory(path: string) {
@@ -816,6 +1240,38 @@ async function loadImagesForDirectory(path: string) {
   currentIndex.value = 0;
   lightboxVisible.value = false;
   resetLightboxView();
+}
+
+type DirectoryTarget = SidebarNode | { path: string; name: string };
+
+function isSidebarNode(target: DirectoryTarget): target is SidebarNode {
+  return typeof (target as SidebarNode).depth === "number";
+}
+
+async function activateDirectory(target: DirectoryTarget) {
+  const path = target.path;
+  const label = target.name;
+  if (!path) return;
+  activeNodePath.value = path;
+  await loadImagesForDirectory(path);
+  subscribeDirectoryWatcher(path);
+  trackRecentDirectory(path, label);
+  if (!isSidebarNode(target)) {
+    ensureVirtualNode(path, label);
+  }
+}
+
+function ensureVirtualNode(path: string, name: string) {
+  if (!nodeRegistry.has(path)) {
+    createNode({
+      path,
+      name,
+      depth: 0,
+      type: "history",
+      register: true,
+      reuseExisting: true,
+    });
+  }
 }
 
 function subscribeDirectoryWatcher(path: string) {
@@ -869,17 +1325,6 @@ watch(playing, (isPlaying) => {
   }
 });
 
-watch(searchKeyword, async () => {
-  currentIndex.value = 0;
-  await nextTick();
-  if (galleryRef.value) {
-    galleryRef.value.scrollTop = 0;
-    scrollTop.value = 0;
-  }
-  selectedIndexes.value = new Set();
-  lastSelectedIndex.value = null;
-});
-
 watch(
   () => virtualItems.value.map((item) => item.resource),
   (resources) => {
@@ -894,6 +1339,24 @@ watch(
     thumbnailCache.retain(resources);
   }
 );
+
+watch(hasSelection, (value) => {
+  if (!value) {
+    closeActionsMenu();
+  }
+});
+
+watch(hasImages, (value) => {
+  if (!value) {
+    closeSortMenu();
+  }
+});
+
+watch(lightboxVisible, (value) => {
+  if (!value) {
+    closeViewerMenu();
+  }
+});
 
 const toggleSlideshow = () => {
   if (!canPlaySlideshow.value) return;
@@ -978,9 +1441,16 @@ async function openDirectoryPicker() {
     extractName(result.directory)
   );
   await loadFavorites();
-  const node = nodeRegistry.get(result.directory);
+  const node =
+    nodeRegistry.get(result.directory) ??
+    findNodeByPath(result.directory, favoriteRoots.value);
   if (node) {
     await selectNode(node);
+  } else {
+    await activateDirectory({
+      path: result.directory,
+      name: extractName(result.directory),
+    });
   }
 }
 
@@ -1191,6 +1661,14 @@ function selectAll() {
 function handleKeydown(event: KeyboardEvent) {
   const meta = event.metaKey || event.ctrlKey;
   const key = event.key.toLowerCase();
+  if (key === "escape") {
+    if (actionsMenuOpen.value || sortMenuOpen.value || viewerMenuOpen.value) {
+      closeActionsMenu();
+      closeSortMenu();
+      closeViewerMenu();
+      return;
+    }
+  }
   if (meta && key === "o") {
     event.preventDefault();
     openDirectoryPicker();
@@ -1335,7 +1813,7 @@ function clampOffset(x: number, y: number) {
   const rect = canvas.getBoundingClientRect();
   const extraX = ((scale.value - 1) * rect.width) / 2;
   const extraY = ((scale.value - 1) * rect.height) / 2;
-  const padding = 48;
+  const padding = Math.max(80, Math.min(rect.width, rect.height) * 0.25);
   const maxX = extraX + padding;
   const maxY = extraY + padding;
   return {
@@ -1385,6 +1863,63 @@ function showToast(
   toasts.value.push({ id, message, variant });
   const timer = window.setTimeout(() => dismissToast(id), duration);
   toastTimers.set(id, timer);
+}
+
+function toggleActionsMenu() {
+  if (!hasSelection.value) return;
+  if (sortMenuOpen.value) {
+    closeSortMenu();
+  }
+  actionsMenuOpen.value = !actionsMenuOpen.value;
+}
+
+function closeActionsMenu() {
+  actionsMenuOpen.value = false;
+}
+
+function runAndClose(action: () => void | Promise<void>) {
+  action();
+  closeActionsMenu();
+}
+
+function toggleSortMenu() {
+  if (!hasImages.value) return;
+  if (actionsMenuOpen.value) {
+    closeActionsMenu();
+  }
+  if (viewerMenuOpen.value) {
+    closeViewerMenu();
+  }
+  sortMenuOpen.value = !sortMenuOpen.value;
+}
+
+function closeSortMenu() {
+  sortMenuOpen.value = false;
+}
+
+function selectSort(mode: SortMode) {
+  sortMode.value = mode;
+  closeSortMenu();
+}
+
+function toggleViewerMenu() {
+  if (!lightboxVisible.value) return;
+  if (actionsMenuOpen.value) {
+    closeActionsMenu();
+  }
+  if (sortMenuOpen.value) {
+    closeSortMenu();
+  }
+  viewerMenuOpen.value = !viewerMenuOpen.value;
+}
+
+function closeViewerMenu() {
+  viewerMenuOpen.value = false;
+}
+
+function runViewerAction(fn: () => void) {
+  fn();
+  closeViewerMenu();
 }
 
 function dismissToast(id: number) {
@@ -1554,22 +2089,81 @@ async function moveSelectedToDirectory() {
 
 <style scoped>
 .viewer {
+  --viewer-pad: clamp(18px, 4vw, 48px);
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 0 clamp(16px, 4vw, 48px) 24px;
+  gap: 12px;
+  padding: 0 var(--viewer-pad) 20px;
   color: var(--color-text);
-  background: var(--color-window);
+  background: linear-gradient(180deg, #fefefe 0%, #f1f3f8 38%, #e7ebf3 100%);
   box-sizing: border-box;
   overflow: hidden;
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
 }
 
 .viewer-body {
   flex: 1;
   display: flex;
-  gap: 24px;
+  gap: 18px;
   min-height: 0;
+  padding-top: 12px;
+}
+
+.viewer-unified-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 20px 8px;
+  border-radius: 0 0 14px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: none;
+  background: rgba(248, 249, 252, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 10px 25px rgba(15, 23, 42, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  margin-inline: calc(var(--viewer-pad) * -1);
+  width: calc(100% + var(--viewer-pad) * 2);
+  -webkit-app-region: drag;
+  backdrop-filter: blur(28px) saturate(180%);
+}
+
+.toolbar-traffic-space {
+  width: 72px;
+  height: 32px;
+  flex: 0 0 72px;
+  -webkit-app-region: drag;
+  pointer-events: none;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-section--left {
+  flex: 0 0 auto;
+}
+
+.toolbar-section--center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.toolbar-section--right {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .viewer-sidebar {
@@ -1577,12 +2171,268 @@ async function moveSelectedToDirectory() {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  border-radius: 20px;
-  padding: 20px;
-  border: 1px solid var(--color-divider);
-  background: var(--color-sidebar);
-  box-shadow: var(--color-shadow);
+  padding: 18px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 130, 150, 0.08);
+  background: linear-gradient(180deg, rgba(248, 249, 252, 0.72), rgba(244, 246, 250, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 25px 60px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(28px) saturate(160%);
+}
+
+.sidebar-utility {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 8px;
+  border-bottom: 1px solid rgba(120, 130, 150, 0.08);
+  margin-bottom: 10px;
+}
+
+.sidebar-utility__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(80, 90, 110, 0.18);
+  background: rgba(255, 255, 255, 0.85);
+  color: #1f2430;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.sidebar-utility__btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.sidebar-utility__btn:not(:disabled):hover {
+  border-color: rgba(60, 110, 255, 0.5);
+  background: rgba(255, 255, 255, 1);
+}
+
+.sidebar-utility__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sidebar-groups {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sidebar-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 6px;
+}
+
+.sidebar-group__label {
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(60, 60, 67, 0.55);
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-group__chevron {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+
+.sidebar-group__chevron.open {
+  transform: rotate(0deg);
+}
+
+.sidebar-header-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: rgba(52, 61, 78, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.sidebar-header-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.sidebar-header-btn:hover {
+  background: rgba(90, 140, 255, 0.14);
+  color: #0a84ff;
+}
+
+.sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-list__item {
+  width: 100%;
+}
+
+.sidebar-item-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: calc(var(--sidebar-indent, 0) + 4px);
+}
+
+.sidebar-item__toggle {
+  border: none;
+  background: transparent;
+  color: rgba(60, 60, 67, 0.45);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-item__toggle svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+  transition: transform 0.15s ease;
+}
+
+.sidebar-item__toggle + .sidebar-item {
+  margin-left: -6px;
+}
+
+.sidebar-item__toggle.open svg {
+  transform: rotate(0deg);
+}
+
+.sidebar-item {
+  flex: 1;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #1f1f25;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sidebar-item.is-active {
+  background: rgba(10, 132, 255, 0.18);
+  color: #0a84ff;
+}
+
+.sidebar-item.is-drop-target {
+  background: rgba(66, 165, 245, 0.15);
+  color: #2563eb;
+}
+
+.sidebar-item__icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.sidebar-item__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-item__icon svg path {
+  fill: currentColor;
+  stroke: none;
+}
+
+.sidebar-item__name {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-item__action {
+  border: none;
+  background: transparent;
+  color: rgba(60, 60, 67, 0.5);
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-item__action svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.sidebar-item__action:hover {
+  background: rgba(10, 132, 255, 0.1);
+  color: #0a84ff;
+}
+
+.sidebar-empty {
+  margin: 6px 0 0 8px;
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.4);
 }
 
 .viewer-main {
@@ -1594,109 +2444,8 @@ async function moveSelectedToDirectory() {
   min-height: 0;
 }
 
-.viewer-unified-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--color-divider);
-  background: var(--color-surface);
-  box-shadow: var(--color-shadow);
-  position: sticky;
-  top: 12px;
-  z-index: 10;
-  margin-top: 12px;
-}
-
-.toolbar-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.toolbar-section--left {
-  flex: 1.2;
-}
-
-.toolbar-section--center {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.toolbar-section--right {
-  flex: 1;
-  justify-content: flex-end;
-  gap: 12px;
-  display: flex;
-  align-items: center;
-}
-
-.toolbar-icon-btn {
-  width: 36px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--color-divider);
-  background: #fff;
-  color: var(--color-text);
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
-}
-
-.toolbar-icon-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.toolbar-icon-btn:not(:disabled):hover {
-  border-color: var(--color-primary);
-  background: rgba(92, 107, 192, 0.15);
-}
-
-.toolbar-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--color-divider);
-}
-
-.toolbar-form {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.toolbar-label {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-.toolbar-slider {
-  width: 140px;
-}
-
-.toolbar-select {
-  border: 1px solid var(--color-divider);
-  border-radius: 8px;
-  padding: 4px 10px;
-  background: transparent;
-  color: var(--color-text);
-}
-
-.toolbar-search {
-  flex: 1;
-  border: 1px solid var(--color-divider);
-  border-radius: 10px;
-  padding: 6px 12px;
-  background: transparent;
-  color: var(--color-text);
+.toolbar-interactive {
+  -webkit-app-region: no-drag;
 }
 
 .toolbar-count {
@@ -1715,27 +2464,143 @@ async function moveSelectedToDirectory() {
   gap: 10px;
 }
 
-.toolbar-action-buttons {
+.toolbar-selection--dropdown {
+  gap: 12px;
+}
+
+.toolbar-dropdown {
+  position: relative;
+}
+
+.toolbar-dropdown--sort {
+  margin-right: 8px;
+}
+
+.toolbar-dropdown.is-open .toolbar-dropdown__trigger {
+  background: rgba(92, 107, 192, 0.16);
+  border-color: rgba(92, 107, 192, 0.4);
+}
+
+.toolbar-dropdown__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(60, 60, 67, 0.2);
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.toolbar-dropdown__trigger--icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.toolbar-dropdown__trigger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-dropdown__chevron {
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.6);
+}
+
+.toolbar-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 40;
+}
+
+.toolbar-dropdown__item {
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 13px;
+  color: #1c1c1e;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.toolbar-dropdown__item:not(:disabled):hover {
+  background: rgba(92, 107, 192, 0.12);
+}
+
+.toolbar-dropdown__item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-dropdown__item--danger:not(:disabled):hover {
+  background: rgba(255, 76, 58, 0.15);
+  color: #d7263d;
+}
+
+.toolbar-dropdown__check {
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: #0a84ff;
+}
+
+.toolbar-dropdown__label {
+  flex: 1;
+  text-align: left;
+}
+
+.toolbar-dropdown__icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-dropdown__icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
 }
 
 .viewer-sidebar__card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  backdrop-filter: blur(12px);
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   width: 100%;
   box-sizing: border-box;
 }
 
 .viewer-sidebar__card--tree {
-  padding: 18px;
+  padding: 16px;
 }
 
 .sidebar-card__header {
@@ -1761,6 +2626,12 @@ async function moveSelectedToDirectory() {
   letter-spacing: normal;
   text-transform: none;
   color: #8c90a2;
+}
+
+.sidebar-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .sidebar-icon-btn {
@@ -1853,6 +2724,8 @@ async function moveSelectedToDirectory() {
   align-items: center;
   gap: 6px;
   height: 32px;
+  border-radius: 8px;
+  padding: 0 4px;
 }
 
 .directory-tree__toggle {
@@ -1879,13 +2752,14 @@ async function moveSelectedToDirectory() {
 }
 
 .directory-tree__main.is-active {
-  border-color: var(--color-primary);
-  background: rgba(10, 132, 255, 0.15);
+  border-color: rgba(92, 107, 192, 0.35);
+  background: rgba(92, 107, 192, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(92, 107, 192, 0.15);
 }
 
 .directory-tree__main.is-drop-target {
-  border-color: var(--color-primary);
-  background: rgba(10, 132, 255, 0.25);
+  border-color: rgba(66, 165, 245, 0.6);
+  background: rgba(66, 165, 245, 0.18);
   color: var(--color-text);
 }
 
@@ -1964,9 +2838,13 @@ async function moveSelectedToDirectory() {
 }
 
 .viewer-gallery__item.is-selected {
-  border-color: var(--color-primary);
-  background: rgba(92, 107, 192, 0.12);
-  box-shadow: 0 10px 30px rgba(92, 107, 192, 0.35);
+  border-color: rgba(82, 141, 255, 0.6);
+  background: linear-gradient(
+    180deg,
+    rgba(141, 175, 255, 0.35),
+    rgba(89, 136, 255, 0.25)
+  );
+  box-shadow: 0 6px 18px rgba(80, 120, 255, 0.28);
 }
 
 .viewer-gallery__spacer {
@@ -2024,9 +2902,9 @@ async function moveSelectedToDirectory() {
 }
 
 .viewer-gallery__item.is-active {
-  border-color: var(--color-primary);
-  background: rgba(10, 132, 255, 0.12);
-  box-shadow: 0 4px 20px rgba(10, 132, 255, 0.35);
+  border-color: rgba(10, 132, 255, 0.75);
+  background: rgba(10, 132, 255, 0.16);
+  box-shadow: 0 4px 18px rgba(10, 132, 255, 0.4);
 }
 
 .viewer-gallery__placeholder {
@@ -2064,25 +2942,12 @@ async function moveSelectedToDirectory() {
   color: var(--color-muted);
 }
 
-.viewer-toolbar__slider {
-  width: 160px;
-}
-
 .viewer-toolbar__select {
   background: transparent;
   border: 1px solid var(--color-divider);
   color: var(--color-text);
   border-radius: 10px;
   padding: 4px 14px;
-}
-
-.viewer-toolbar__search-input {
-  background: transparent;
-  border: 1px solid var(--color-divider);
-  color: var(--color-text);
-  border-radius: 10px;
-  padding: 4px 12px;
-  width: 200px;
 }
 
 .viewer-toolbar__count {
@@ -2225,13 +3090,6 @@ async function moveSelectedToDirectory() {
   color: var(--color-muted);
 }
 
-.viewer-lightbox__controls {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
 .viewer-lightbox__canvas--forward :deep(.image-wrapper) {
   animation: viewer-slide-forward 220ms ease;
 }
@@ -2244,36 +3102,47 @@ async function moveSelectedToDirectory() {
   animation: viewer-fade-in 220ms ease;
 }
 
-.control-button {
+.viewer-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   width: 48px;
-  height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 14px;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
+  height: 88px;
+  border: none;
+  border-radius: 24px;
+  background: rgba(12, 18, 30, 0.35);
+  color: #fff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  font-size: 14px;
   cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  transition: background 0.2s ease, opacity 0.2s ease;
+  backdrop-filter: blur(14px);
 }
 
-.control-button__icon {
-  font-size: 22px;
+.viewer-lightbox__nav svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
-.control-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.08);
+.viewer-lightbox__nav--prev {
+  left: 10px;
+  transform: translateY(-50%) rotate(180deg);
 }
 
-.control-button:disabled {
-  opacity: 0.35;
+.viewer-lightbox__nav--next {
+  right: 10px;
+}
+
+.viewer-lightbox__nav:hover:not(:disabled) {
+  background: rgba(12, 18, 30, 0.55);
+}
+
+.viewer-lightbox__nav:disabled {
+  opacity: 0.15;
   cursor: not-allowed;
 }
 
@@ -2348,9 +3217,13 @@ async function moveSelectedToDirectory() {
 
 .viewer-gallery__item.is-selected,
 .viewer-gallery__item.is-active {
-  border-color: #5c6bc0;
-  background: rgba(92, 107, 192, 0.15);
-  box-shadow: 0 10px 30px rgba(92, 107, 192, 0.35);
+  border-color: rgba(82, 141, 255, 0.65);
+  background: linear-gradient(
+    180deg,
+    rgba(141, 175, 255, 0.35),
+    rgba(89, 136, 255, 0.25)
+  );
+  box-shadow: 0 8px 24px rgba(82, 141, 255, 0.32);
 }
 
 .viewer-gallery__placeholder {
@@ -2372,8 +3245,7 @@ async function moveSelectedToDirectory() {
   color: #666;
 }
 
-.viewer-toolbar__select,
-.viewer-toolbar__search-input {
+.viewer-toolbar__select {
   border: 1px solid #d6dbe9;
   color: #333;
   background: #fff;
@@ -2483,12 +3355,6 @@ async function moveSelectedToDirectory() {
 
   .viewer-sidebar {
     width: 100%;
-  }
-}
-
-@media (max-width: 640px) {
-  .viewer-lightbox__controls {
-    flex-direction: column;
   }
 }
 </style>

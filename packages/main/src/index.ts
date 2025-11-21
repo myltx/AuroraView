@@ -14,6 +14,7 @@ import { createFavoritesModule } from "./modules/FavoritesModule.js";
 import { createFileOperationsModule } from "./modules/FileOperationsModule.js";
 import { createDirectoryWatcherModule } from "./modules/DirectoryWatcherModule.js";
 import { createSystemThemeModule } from "./modules/SystemThemeModule.js";
+import { createApplicationMenuModule } from "./modules/ApplicationMenu.js";
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
@@ -24,6 +25,7 @@ export async function initApp(initConfig: AppInitConfig) {
       })
     )
     .init(createFileSystemModule())
+    .init(createApplicationMenuModule())
     .init(createFavoritesModule())
     .init(createFileOperationsModule())
     .init(createDirectoryWatcherModule())

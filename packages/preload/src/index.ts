@@ -55,6 +55,10 @@ type DirectoryChangePayload = {
 
 type ThemeMode = "light" | "dark";
 
+type AppActionPayload = {
+  type: "open-directory" | "refresh-directory";
+};
+
 const fsAPI = {
   readDirectory: (path: string, options?: DirectoryReadOptions) =>
     ipcRenderer.invoke(IPC_CHANNELS.FS_READ_DIRECTORY, { path, options }) as Promise<DirectoryReadResult>,
@@ -103,6 +107,18 @@ const themeAPI = {
   },
 };
 
+const actionAPI = {
+  onAction: (handler: (payload: AppActionPayload) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AppActionPayload) => {
+      handler(payload);
+    };
+    ipcRenderer.on(IPC_CHANNELS.APP_ACTION, listener);
+    return () => {
+      ipcRenderer.removeListener(IPC_CHANNELS.APP_ACTION, listener);
+    };
+  },
+};
+
 const electronAPI = {
   toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
   selectImages: () =>
@@ -130,6 +146,7 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_COPY, { paths, destination }) as Promise<string[] | void>,
   },
   theme: themeAPI,
+  onAction: actionAPI.onAction,
 };
 
 contextBridge.exposeInMainWorld("electron", electronAPI);

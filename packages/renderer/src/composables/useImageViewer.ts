@@ -1,7 +1,7 @@
 import { reactive, ref } from "vue";
 
 const MIN_SCALE = 0.25;
-const MAX_SCALE = 8;
+const MAX_SCALE = 30;
 
 export function useImageViewer() {
   const scale = ref(1);

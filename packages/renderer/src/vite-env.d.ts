@@ -91,6 +91,10 @@ interface ThemeAPI {
   onDidChange: (handler: (mode: ThemeMode) => void) => () => void;
 }
 
+type AppActionPayload = {
+  type: "open-directory" | "refresh-directory";
+};
+
 interface ElectronAPI {
   toggleFullscreen: () => void;
   selectImages: () => Promise<string[]>;
@@ -100,6 +104,7 @@ interface ElectronAPI {
   favorites: FavoritesAPI;
   fileOps: FileOperationsAPI;
   theme: ThemeAPI;
+  onAction: (handler: (payload: AppActionPayload) => void) => () => void;
 }
 
 declare global {

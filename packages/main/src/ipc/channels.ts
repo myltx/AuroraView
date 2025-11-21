@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
   FS_DIRECTORY_CHANGED: "fs:directory-changed",
   THEME_GET: "theme:get",
   THEME_UPDATED: "theme:updated",
+  APP_ACTION: "app:action",
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
