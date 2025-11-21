@@ -2,59 +2,72 @@
   <div class="viewer">
     <header class="viewer-unified-toolbar">
       <div class="toolbar-traffic-space" aria-hidden="true"></div>
-      <div class="toolbar-section toolbar-section--left"></div>
-      <div class="toolbar-section toolbar-section--center"></div>
-      <div class="toolbar-section toolbar-section--right">
-        <div
-          class="toolbar-dropdown toolbar-dropdown--sort toolbar-interactive"
-          :class="{ 'is-open': sortMenuOpen }"
-          ref="sortMenuRef">
-          <button
-            class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
-            :disabled="!hasImages"
-            aria-label="排序"
-            @click="toggleSortMenu">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="TOOLBAR_ICONS.sort" />
-            </svg>
-          </button>
-          <div
-            v-if="sortMenuOpen"
-            class="toolbar-dropdown__menu"
-            role="menu">
-            <button
-              v-for="option in sortOptions"
-              :key="option.value"
-              class="toolbar-dropdown__item"
-              role="menuitemradio"
-              :aria-checked="sortMode === option.value"
-              @click="() => selectSort(option.value)">
-              <span class="toolbar-dropdown__check">
-                {{ sortMode === option.value ? "✓" : "" }}
-              </span>
-              <span class="toolbar-dropdown__label">{{ option.label }}</span>
-            </button>
+      <div class="toolbar-content">
+        <div class="toolbar-left">
+          <div class="toolbar-title">
+            <span class="toolbar-title__primary">Photon</span>
+            <span class="toolbar-title__path" :title="currentDirectoryLabel">
+              {{ currentDirectoryLabel }}
+            </span>
           </div>
         </div>
-        <div
-          v-if="hasSelection"
-          class="toolbar-selection toolbar-selection--dropdown"
-          ref="actionsMenuRef">
-          <span class="toolbar-count toolbar-count--selected">
-            已选 {{ selectedCount }} 张
-          </span>
-          <div class="toolbar-dropdown" :class="{ 'is-open': actionsMenuOpen }">
-            <button
-              class="toolbar-dropdown__trigger toolbar-interactive"
-              :disabled="!hasSelection"
-              @click="toggleActionsMenu">
-              操作
-              <span class="toolbar-dropdown__chevron">⌄</span>
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-actions">
+          <div class="toolbar-icon-group">
+            <button class="toolbar-button toolbar-interactive" title="打开目录 (⌘O)" @click="openDirectoryPicker">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.open" />
+              </svg>
             </button>
-            <div
-              v-if="actionsMenuOpen"
-              class="toolbar-dropdown__menu"
-              role="menu">
+            <button class="toolbar-button toolbar-interactive" title="刷新目录" @click="bootstrapSidebar">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.refresh" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="toolbar-dropdown toolbar-dropdown--icon toolbar-interactive" :class="{ 'is-open': sortMenuOpen }" ref="sortMenuRef">
+            <button
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
+              :disabled="!hasImages"
+              aria-label="排序"
+              @click="toggleSortMenu">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.sort" />
+              </svg>
+            </button>
+            <div v-if="sortMenuOpen" class="toolbar-dropdown__menu" role="menu">
+              <button
+                v-for="option in sortOptions"
+                :key="option.value"
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="sortMode === option.value"
+                @click="() => selectSort(option.value)">
+                <span class="toolbar-dropdown__check">
+                  {{ sortMode === option.value ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">{{ option.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-if="hasSelection"
+            class="toolbar-dropdown toolbar-dropdown--actions toolbar-interactive"
+            :class="{ 'is-open': actionsMenuOpen }"
+            ref="actionsMenuRef">
+            <button
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon toolbar-interactive"
+              :title="`图片操作（已选 ${selectedCount} 张）`"
+              aria-label="图片操作"
+              @click="toggleActionsMenu">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.actions" />
+              </svg>
+            </button>
+            <div v-if="actionsMenuOpen" class="toolbar-dropdown__menu" role="menu">
               <button
                 class="toolbar-dropdown__item"
                 role="menuitem"
@@ -62,7 +75,7 @@
                 @click="() => runAndClose(copySelectedPaths)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M7 4h9a2 2 0 0 1 2 2v11H9a2 2 0 0 1-2-2V4zm2 2v9h7V6H9zm-3 1v9H5a2 2 0 0 1-2-2V7h3z" />
+                    <path :d="ACTION_ICONS.copyPaths" />
                   </svg>
                 </span>
                 复制路径
@@ -74,7 +87,7 @@
                 @click="() => runAndClose(revealSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M11 5a7 7 0 0 1 5.6 2.8L20 5.4 21.4 6.8 18.7 9.5A7 7 0 1 1 11 5zm0 2a5 5 0 1 0 3.9 8.1l1.2 1.2 1.4-1.4-1.2-1.2A5 5 0 0 0 11 7zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z" />
+                    <path :d="ACTION_ICONS.reveal" />
                   </svg>
                 </span>
                 显示原文件
@@ -86,7 +99,7 @@
                 @click="() => runAndClose(renameSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M5 17.5V21h3.5l9.2-9.2-3.5-3.5L5 17.5zm12.1-8.6 1.4-1.4-2.5-2.5-1.4 1.4 2.5 2.5z" />
+                    <path :d="ACTION_ICONS.rename" />
                   </svg>
                 </span>
                 重命名
@@ -98,7 +111,7 @@
                 @click="() => runAndClose(copySelectedToDirectory)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M4 6h5l2 2h9v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 4v8h14v-8H4zm7.5 1.5 1.5 1.5H11v3h-2v-3H7.5l1.5-1.5L11 9l0 2.5z" />
+                    <path :d="ACTION_ICONS.copyToDirectory" />
                   </svg>
                 </span>
                 复制到目录
@@ -110,7 +123,7 @@
                 @click="() => runAndClose(moveSelectedToDirectory)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M4 6h5l2 2h9v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 4v8h14v-8H4zm4 1h2.5V9l3.5 3-3.5 3v-2H8v-2z" />
+                    <path :d="ACTION_ICONS.moveToDirectory" />
                   </svg>
                 </span>
                 移动到目录
@@ -122,7 +135,7 @@
                 @click="() => runAndClose(exportSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M11 3h2v8.1l2.95-2.95L17.4 9.6 12 15 6.6 9.6 8.05 8.15 11 11.1V3zM5 17h14v2H5z" />
+                    <path :d="ACTION_ICONS.export" />
                   </svg>
                 </span>
                 导出
@@ -134,104 +147,14 @@
                 @click="() => runAndClose(deleteSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
-                    <path d="M9 4h6l1 2h4v2h-2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8H3V6h4l1-2zm0 4v10h6V8H9z" />
+                    <path :d="ACTION_ICONS.delete" />
                   </svg>
                 </span>
                 删除
               </button>
             </div>
           </div>
-        </div>
-        <div
-          v-if="lightboxVisible"
-          class="toolbar-selection toolbar-selection--dropdown"
-          ref="viewerMenuRef">
-          <div class="toolbar-dropdown" :class="{ 'is-open': viewerMenuOpen }">
-            <button
-              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon toolbar-interactive"
-              :disabled="!lightboxVisible"
-              aria-label="查看器操作"
-              @click="toggleViewerMenu">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="TOOLBAR_ICONS.viewer" />
-              </svg>
-            </button>
-            <div
-              v-if="viewerMenuOpen"
-              class="toolbar-dropdown__menu"
-              role="menu">
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(zoomIn)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.zoomIn" />
-                  </svg>
-                </span>
-                放大
-              </button>
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(zoomOut)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.zoomOut" />
-                  </svg>
-                </span>
-                缩小
-              </button>
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(resetLightboxView)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.reset" />
-                  </svg>
-                </span>
-                基于窗口
-              </button>
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(rotate)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.rotate" />
-                  </svg>
-                </span>
-                旋转
-              </button>
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(toggleFlipX)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.flipX" />
-                  </svg>
-                </span>
-                水平翻转
-              </button>
-              <button class="toolbar-dropdown__item" role="menuitem" @click="() => runViewerAction(toggleFlipY)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.flipY" />
-                  </svg>
-                </span>
-                垂直翻转
-              </button>
-              <button
-                class="toolbar-dropdown__item"
-                role="menuitem"
-                @click="() => runViewerAction(toggleSlideshow)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
-                  </svg>
-                </span>
-                {{ playing ? "暂停幻灯片" : "播放幻灯片" }}
-              </button>
-              <button
-                class="toolbar-dropdown__item"
-                role="menuitem"
-                @click="() => runViewerAction(toggleFullscreen)">
-                <span class="toolbar-dropdown__icon">
-                  <svg viewBox="0 0 24 24">
-                    <path :d="TOOLBAR_ICONS.fullscreen" />
-                  </svg>
-                </span>
-                切换全屏
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
     </header>
@@ -569,16 +492,66 @@
     <div v-if="lightboxVisible" class="viewer-lightbox">
       <div class="viewer-lightbox__backdrop" @click="closeLightbox"></div>
       <div class="viewer-lightbox__content">
-        <button class="viewer-lightbox__close" @click="closeLightbox">
-          ✕
-        </button>
-        <div class="viewer-lightbox__meta">
-          <span>{{ statusText }}</span>
-          <span v-if="currentFileName">{{ currentFileName }}</span>
-          <span v-if="currentMetadata" class="viewer-lightbox__meta-details">
-            {{ formatFileSize(currentMetadata.size) }} ·
-            {{ formatDate(currentMetadata.modifiedAt) }}
-          </span>
+        <div class="viewer-lightbox__chrome">
+          <div class="viewer-lightbox__info">
+            <p class="viewer-lightbox__status">{{ statusText }}</p>
+            <p v-if="currentFileName" class="viewer-lightbox__title">
+              {{ currentFileName }}
+            </p>
+            <p v-if="currentMetadata" class="viewer-lightbox__subtext">
+              {{ formatFileSize(currentMetadata.size) }} ·
+              {{ formatDate(currentMetadata.modifiedAt) }}
+            </p>
+          </div>
+          <div class="viewer-lightbox__header-actions">
+            <div class="viewer-lightbox__controls">
+              <button class="viewer-lightbox__toolbar-btn" title="放大 (⌘+)" @click="runViewerAction(zoomIn)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.zoomIn" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="缩小 (⌘-)" @click="runViewerAction(zoomOut)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.zoomOut" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="适应窗口 (0)" @click="runViewerAction(resetLightboxView)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.reset" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="旋转 90° (R)" @click="runViewerAction(rotate)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.rotate" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="水平翻转" @click="runViewerAction(toggleFlipX)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.flipX" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="垂直翻转" @click="runViewerAction(toggleFlipY)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.flipY" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" :title="playing ? '暂停幻灯片' : '播放幻灯片'" @click="runViewerAction(toggleSlideshow)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
+                </svg>
+              </button>
+              <button class="viewer-lightbox__toolbar-btn" title="全屏切换" @click="runViewerAction(toggleFullscreen)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.fullscreen" />
+                </svg>
+              </button>
+            </div>
+            <button class="viewer-lightbox__toolbar-btn viewer-lightbox__toolbar-btn--close" title="关闭 (Esc)" @click="closeLightbox">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="SIDEBAR_ICONS.close" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div
           ref="lightboxCanvasRef"
@@ -594,7 +567,6 @@
           @pointerdown="handlePointerDown"
           @pointermove="handlePointerMove"
           @pointerup="handlePointerUp"
-          @pointerleave="handlePointerLeave"
           @pointercancel="handlePointerCancel"
           @dblclick="resetLightboxView">
           <ImageCanvas
@@ -703,9 +675,14 @@ const SIDEBAR_ICONS: Record<string, string> = {
 };
 const TOOLBAR_ICONS = {
   viewer:
-    "M6 7h3.2l1.2-1.5h3.2L14.8 7H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm6 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm0 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm5-1.5h-2v-1h2z",
-  sort:
-    "M8 5h8v2H8zm-2 4h12v2H6zm2 4h8v2H8z",
+    "M5 7h14l2 2v9l-2 2H5l-2-2V9z M7.5 5h9l1.5 2m-11 0h9",
+  sort: "M5 7h14M5 12h10M5 17h7",
+  open:
+    "M5 6h5.2l1.6 2H19a1 1 0 0 1 1 1v9H4V7a1 1 0 0 1 1-1zm-1 12h16v2H4z",
+  refresh:
+    "M12 5a7 7 0 0 1 6.9 6H21l-3.5 3.5L14 11h2.2A5 5 0 1 0 17 13h2a7 7 0 1 1-7-8z",
+  actions:
+    "M7 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z",
   zoomIn:
     "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-.75 2.5h1.5v1.75H13.5v1.5h-1.75V13.5h-1.5v-1.75H8.5v-1.5h1.75V8.5zM18.5 18.5l3 3-1.5 1.5-3-3z",
   zoomOut:
@@ -720,6 +697,22 @@ const TOOLBAR_ICONS = {
   pause: "M7 6h3v12H7zm7 0h3v12h-3z",
   fullscreen:
     "M6 6h5v2H8v3H6zm10 0v5h-2V8h-3V6zm-3 10h3v-3h2v5h-5zm-4 0v2H6v-5h2v3z",
+};
+const ACTION_ICONS = {
+  copyPaths:
+    "M8 6h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm-3 3h3m-3 4h3m-3 4h3",
+  reveal:
+    "M12 5a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm2 1.5 3.5 3.5",
+  rename:
+    "M6 17.5V20h2.5l9.2-9.2-2.5-2.5zm10.1-10.1 3-3 1.5 1.5-3 3z",
+  copyToDirectory:
+    "M7 9h10a2 2 0 0 1 2 2v7H7V9zm0 0v12m5-8 3-3m-3 3 3 3",
+  moveToDirectory:
+    "M7 9h11a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H7zm5 0v12",
+  export:
+    "M7 12l4-4 4 4m-4-4v11m-5 0h10",
+  delete:
+    "M9 7h6l1.5 2h3v2H4.5V9h3z M9 11v7m6-7v7",
 };
 type RecentEntry = { path: string; name: string };
 type CustomEntry = { id: string; path: string; name: string };
@@ -1385,9 +1378,16 @@ function zoomTo(targetScale: number, origin?: { x: number; y: number }) {
   const centerY = rect.top + rect.height / 2;
   const deltaRatio = scale.value / previous - 1;
   if (!isFinite(deltaRatio)) return;
-  const relativeX = origin.x - centerX;
-  const relativeY = origin.y - centerY;
-  applyOffset(offset.x - relativeX * deltaRatio, offset.y - relativeY * deltaRatio);
+  const currentOffsetX = offset.x;
+  const currentOffsetY = offset.y;
+  const imageCenterX = centerX + currentOffsetX;
+  const imageCenterY = centerY + currentOffsetY;
+  const relativeX = origin.x - imageCenterX;
+  const relativeY = origin.y - imageCenterY;
+  applyOffset(
+    currentOffsetX - relativeX * deltaRatio,
+    currentOffsetY - relativeY * deltaRatio
+  );
 }
 
 const prevImage = () => {
@@ -1668,6 +1668,11 @@ function handleKeydown(event: KeyboardEvent) {
       closeViewerMenu();
       return;
     }
+    if (lightboxVisible.value) {
+      event.preventDefault();
+      closeLightbox();
+      return;
+    }
   }
   if (meta && key === "o") {
     event.preventDefault();
@@ -1725,35 +1730,16 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 function handleLightboxWheel(event: WheelEvent) {
-  if (event.ctrlKey) {
-    const multiplier = Math.exp(-event.deltaY / 480);
-    zoomTo(scale.value * multiplier, { x: event.clientX, y: event.clientY });
-    return;
-  }
-
-  if (canPan.value && scale.value > 1) {
-    applyOffset(offset.x - event.deltaX, offset.y - event.deltaY);
-    return;
-  }
-
-  if (Math.abs(event.deltaX) > Math.abs(event.deltaY) && Math.abs(event.deltaX) > 20) {
-    if (event.deltaX > 0) {
-      nextImage();
-    } else {
-      prevImage();
-    }
-    return;
-  }
-
-  if (event.deltaY < 0) {
-    zoomIn();
-  } else {
-    zoomOut();
-  }
+  event.preventDefault();
+  const zoomFactorBase = event.ctrlKey ? 520 : 720;
+  const multiplier = Math.exp(-event.deltaY / zoomFactorBase);
+  zoomTo(scale.value * multiplier, { x: event.clientX, y: event.clientY });
 }
 
 function handlePointerDown(event: PointerEvent) {
   if (!canPan.value || scale.value <= 1) return;
+  event.preventDefault();
+  event.stopPropagation();
   const target = event.currentTarget as HTMLElement | null;
   target?.setPointerCapture?.(event.pointerId);
   isPanning.value = true;
@@ -1783,16 +1769,10 @@ function handlePointerUp(event: PointerEvent) {
   target?.releasePointerCapture?.(event.pointerId);
   isPanning.value = false;
   pointerState.pointerId = null;
-  if (canPan.value && scale.value > 1) {
-    startMomentum();
-  } else {
+  // 停止拖动后不再启动惯性，避免视图继续“冲”很远
+  if (!canPan.value || scale.value <= 1) {
     setOffset(0, 0);
   }
-}
-
-function handlePointerLeave(event: PointerEvent) {
-  if (!isPanning.value) return;
-  handlePointerUp(event);
 }
 
 function handlePointerCancel(event: PointerEvent) {
@@ -1823,28 +1803,8 @@ function clampOffset(x: number, y: number) {
 }
 
 function startMomentum() {
+  // 暂时禁用惯性滚动，让拖动体验更加可控、不会“跳太远”
   cancelMomentum();
-  let vx = pointerState.velocityX;
-  let vy = pointerState.velocityY;
-  if (Math.abs(vx) < 0.1 && Math.abs(vy) < 0.1) return;
-
-  const step = () => {
-    vx *= 0.92;
-    vy *= 0.92;
-    if (!canPan.value || scale.value <= 1) {
-      cancelMomentum();
-      setOffset(0, 0);
-      return;
-    }
-    applyOffset(offset.x + vx, offset.y + vy);
-    if (Math.abs(vx) < 0.1 && Math.abs(vy) < 0.1) {
-      cancelMomentum();
-      return;
-    }
-    momentumFrame = requestAnimationFrame(step);
-  };
-
-  momentumFrame = requestAnimationFrame(step);
 }
 
 function cancelMomentum() {
@@ -2089,7 +2049,7 @@ async function moveSelectedToDirectory() {
 
 <style scoped>
 .viewer {
-  --viewer-pad: clamp(18px, 4vw, 48px);
+  --viewer-pad: clamp(12px, 2.8vw, 32px);
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -2106,7 +2066,7 @@ async function moveSelectedToDirectory() {
 .viewer-body {
   flex: 1;
   display: flex;
-  gap: 18px;
+  gap: 12px;
   min-height: 0;
   padding-top: 12px;
 }
@@ -2139,31 +2099,142 @@ async function moveSelectedToDirectory() {
   pointer-events: none;
 }
 
-.toolbar-section {
+.toolbar-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-actions > * {
+  flex-shrink: 0;
+}
+
+.toolbar-icon-group {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar-viewer-inline {
+  gap: 6px;
+}
+
+.toolbar-selection-count {
+  display: none;
+}
+
+.toolbar-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.toolbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: rgba(28, 28, 30, 0.75);
+}
+
+.toolbar-title__primary {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbar-title__path {
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.toolbar-groups {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.toolbar-section--left {
-  flex: 0 0 auto;
+.toolbar-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(120, 130, 150, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  -webkit-app-region: no-drag;
 }
 
-.toolbar-section--center {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-start;
-  flex-wrap: wrap;
+.toolbar-group--pill {
+  gap: 8px;
 }
 
-.toolbar-section--right {
-  flex: 0 0 auto;
-  margin-left: auto;
-  display: flex;
+.toolbar-group--pill .toolbar-dropdown {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.toolbar-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid rgba(90, 100, 120, 0.18);
+  background: rgba(255, 255, 255, 0.6);
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  color: rgba(28, 28, 30, 0.85);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.toolbar-button svg,
+.toolbar-dropdown__trigger svg,
+.toolbar-dropdown__icon svg {
+  width: 18px;
+  height: 18px;
+  vector-effect: non-scaling-stroke;
+}
+
+.toolbar-button svg path,
+.toolbar-dropdown__trigger svg path,
+.toolbar-dropdown__icon svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toolbar-button:hover:not(:disabled) {
+  background: rgba(10, 132, 255, 0.14);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #0a84ff;
+}
+
+.toolbar-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .viewer-sidebar {
@@ -2454,26 +2525,24 @@ async function moveSelectedToDirectory() {
 }
 
 .toolbar-count--selected {
+  display: none;
+}
+
+.toolbar-pill {
+  min-width: 105px;
+  text-align: center;
+  padding: 5px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(90, 100, 120, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text);
-}
-
-.toolbar-selection {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.toolbar-selection--dropdown {
-  gap: 12px;
+  color: rgba(28, 28, 30, 0.9);
 }
 
 .toolbar-dropdown {
   position: relative;
-}
-
-.toolbar-dropdown--sort {
-  margin-right: 8px;
 }
 
 .toolbar-dropdown.is-open .toolbar-dropdown__trigger {
@@ -2485,20 +2554,26 @@ async function moveSelectedToDirectory() {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid rgba(60, 60, 67, 0.2);
-  border-radius: 8px;
+  border: 1px solid rgba(90, 100, 120, 0.2);
+  border-radius: 9px;
   padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(28, 28, 30, 0.85);
   cursor: pointer;
   font-size: 13px;
   letter-spacing: 0.04em;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
+.toolbar-dropdown__trigger:not(:disabled):hover {
+  background: rgba(10, 132, 255, 0.14);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #0a84ff;
+}
+
 .toolbar-dropdown__trigger--icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   justify-content: center;
   font-size: 16px;
@@ -2578,12 +2653,6 @@ async function moveSelectedToDirectory() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.toolbar-dropdown__icon svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
 }
 
 .viewer-sidebar__card {
@@ -2796,7 +2865,7 @@ async function moveSelectedToDirectory() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  padding: 8px;
   border-radius: 18px;
   background: var(--color-surface);
   border: 1px solid var(--color-divider);
@@ -3017,45 +3086,119 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: radial-gradient(circle at 20% 20%, rgba(66, 165, 245, 0.25), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(124, 87, 255, 0.25), transparent 50%),
+    rgba(3, 6, 14, 0.85);
 }
 
 .viewer-lightbox__content {
   position: relative;
-  width: min(1000px, 90vw);
-  max-height: 90vh;
+  width: min(1100px, 92vw);
+  height: min(820px, 88vh);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 24px;
-  border-radius: 24px;
-  background: #080c1c;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  gap: 12px;
+  padding: 20px 24px 24px;
+  border-radius: 28px;
+  background: rgba(8, 12, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 35px 70px rgba(5, 7, 15, 0.65);
   z-index: 1;
+  backdrop-filter: blur(40px) saturate(140%);
 }
 
-.viewer-lightbox__close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  border: none;
-  background: transparent;
-  color: #fff;
-  font-size: 20px;
+.viewer-lightbox__chrome {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 4px;
+}
+
+.viewer-lightbox__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #e2e8f0;
+}
+
+.viewer-lightbox__status {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: rgba(226, 232, 240, 0.65);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.viewer-lightbox__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fdfdfd;
+}
+
+.viewer-lightbox__subtext {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.viewer-lightbox__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.viewer-lightbox__controls {
+  display: flex;
+  gap: 6px;
+}
+
+.viewer-lightbox__toolbar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 18, 34, 0.65);
+  color: #f8fafc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.viewer-lightbox__toolbar-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.viewer-lightbox__toolbar-btn:hover {
+  background: rgba(66, 165, 245, 0.25);
+  border-color: rgba(66, 165, 245, 0.6);
+}
+
+.viewer-lightbox__toolbar-btn--close {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fefefe;
 }
 
 .viewer-lightbox__canvas {
   flex: 1;
-  min-height: 420px;
+  min-height: 480px;
+  max-height: calc(100% - 90px);
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 18px;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(5, 7, 20, 0.78);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  touch-action: none;
 }
 
 .viewer-lightbox__canvas--pannable {
@@ -3067,27 +3210,14 @@ async function moveSelectedToDirectory() {
 }
 
 .viewer-lightbox__canvas :deep(.image-wrapper) {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   box-shadow: none;
-}
-
-.viewer-lightbox__meta {
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: #d1d5db;
-  font-size: 14px;
-}
-.viewer-lightbox__meta-details {
-  font-size: 12px;
-  color: var(--color-muted);
-}
-
-.viewer-lightbox__meta-details {
-  font-size: 12px;
-  color: var(--color-muted);
 }
 
 .viewer-lightbox__canvas--forward :deep(.image-wrapper) {
@@ -3110,7 +3240,7 @@ async function moveSelectedToDirectory() {
   height: 88px;
   border: none;
   border-radius: 24px;
-  background: rgba(12, 18, 30, 0.35);
+  background: rgba(12, 18, 30, 0.32);
   color: #fff;
   display: flex;
   align-items: center;
@@ -3138,7 +3268,7 @@ async function moveSelectedToDirectory() {
 }
 
 .viewer-lightbox__nav:hover:not(:disabled) {
-  background: rgba(12, 18, 30, 0.55);
+  background: rgba(66, 165, 245, 0.4);
 }
 
 .viewer-lightbox__nav:disabled {

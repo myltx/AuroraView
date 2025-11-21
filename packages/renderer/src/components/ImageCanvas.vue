@@ -1,6 +1,11 @@
 <template>
   <div class="image-wrapper">
-    <img v-if="src" :src="src" :style="imageStyle" class="image" />
+    <img
+      v-if="src"
+      :src="src"
+      :style="imageStyle"
+      class="image"
+      draggable="false" />
     <div v-else class="image-placeholder">请选择图片或目录</div>
   </div>
 </template>
@@ -32,7 +37,7 @@ const imageStyle = computed(() => ({
   }deg) scale(${props.scale * (props.flipX ? -1 : 1)}, ${
     props.scale * (props.flipY ? -1 : 1)
   })`,
-  transition: props.isInteracting ? "none" : "transform 0.25s ease",
+  transition: "none",
   maxWidth: "100%",
   maxHeight: "100%",
   objectFit: "contain" as const,
