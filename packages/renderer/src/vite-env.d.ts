@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import type { ThemeMode, ThemePreference } from "./types/theme";
 
 interface DirectoryTreeNode {
   name: string;
@@ -50,7 +51,9 @@ interface DirectoryChangePayload {
   targetPath?: string;
 }
 
-type ThemeMode = "light" | "dark";
+interface UserPreferences {
+  themePreference: ThemePreference;
+}
 
 interface FileSystemAPI {
   readDirectory: (
@@ -91,6 +94,14 @@ interface ThemeAPI {
   onDidChange: (handler: (mode: ThemeMode) => void) => () => void;
 }
 
+interface PreferencesAPI {
+  get: () => Promise<UserPreferences>;
+  set: <K extends keyof UserPreferences>(
+    key: K,
+    value: UserPreferences[K]
+  ) => Promise<UserPreferences>;
+}
+
 type AppActionPayload = {
   type: "open-directory" | "refresh-directory";
 };
@@ -104,6 +115,7 @@ interface ElectronAPI {
   favorites: FavoritesAPI;
   fileOps: FileOperationsAPI;
   theme: ThemeAPI;
+  preferences: PreferencesAPI;
   onAction: (handler: (payload: AppActionPayload) => void) => () => void;
 }
 

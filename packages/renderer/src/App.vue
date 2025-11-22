@@ -3,13 +3,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from "vue";
+import { onMounted, onBeforeUnmount } from "vue";
 import Viewer from "./views/Viewer.vue";
 import { useSystemTheme } from "./composables/useSystemTheme";
 
-const { init } = useSystemTheme();
+const { init, dispose } = useSystemTheme();
 
 onMounted(() => {
   void init();
+});
+
+onBeforeUnmount(() => {
+  dispose();
 });
 </script>

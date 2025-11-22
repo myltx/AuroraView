@@ -14,6 +14,7 @@ import { createFavoritesModule } from "./modules/FavoritesModule.js";
 import { createFileOperationsModule } from "./modules/FileOperationsModule.js";
 import { createDirectoryWatcherModule } from "./modules/DirectoryWatcherModule.js";
 import { createSystemThemeModule } from "./modules/SystemThemeModule.js";
+import { createPreferencesModule } from "./modules/PreferencesModule.js";
 import { createApplicationMenuModule } from "./modules/ApplicationMenu.js";
 
 export async function initApp(initConfig: AppInitConfig) {
@@ -29,6 +30,7 @@ export async function initApp(initConfig: AppInitConfig) {
     .init(createFavoritesModule())
     .init(createFileOperationsModule())
     .init(createDirectoryWatcherModule())
+    .init(createPreferencesModule())
     .init(createSystemThemeModule())
     .init(disallowMultipleAppInstance())
     .init(terminateAppOnLastWindowClose())

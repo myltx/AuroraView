@@ -12,6 +12,9 @@ const IMAGE_EXTENSIONS = new Set([
   "webp",
   "tiff",
   "svg",
+  'dng',
+  'DNG',
+  'RAW'
 ]);
 
 type DirectoryNode = {

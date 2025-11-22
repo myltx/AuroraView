@@ -54,6 +54,10 @@ type DirectoryChangePayload = {
 };
 
 type ThemeMode = "light" | "dark";
+type ThemePreference = "auto" | ThemeMode;
+type UserPreferences = {
+  themePreference: ThemePreference;
+};
 
 type AppActionPayload = {
   type: "open-directory" | "refresh-directory";
@@ -107,6 +111,13 @@ const themeAPI = {
   },
 };
 
+const preferencesAPI = {
+  get: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_GET) as Promise<UserPreferences>,
+  set: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PREFERENCES_SET, { key, value }) as Promise<UserPreferences>,
+};
+
 const actionAPI = {
   onAction: (handler: (payload: AppActionPayload) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AppActionPayload) => {
@@ -146,6 +157,7 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_COPY, { paths, destination }) as Promise<string[] | void>,
   },
   theme: themeAPI,
+  preferences: preferencesAPI,
   onAction: actionAPI.onAction,
 };
 

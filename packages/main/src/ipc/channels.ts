@@ -15,6 +15,8 @@ export const IPC_CHANNELS = {
   FS_DIRECTORY_CHANGED: "fs:directory-changed",
   THEME_GET: "theme:get",
   THEME_UPDATED: "theme:updated",
+  PREFERENCES_GET: "preferences:get",
+  PREFERENCES_SET: "preferences:set",
   APP_ACTION: "app:action",
 } as const;
 

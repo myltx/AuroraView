@@ -15,19 +15,28 @@
 
         <div class="toolbar-actions">
           <div class="toolbar-icon-group">
-            <button class="toolbar-button toolbar-interactive" title="打开目录 (⌘O)" @click="openDirectoryPicker">
+            <button
+              class="toolbar-button toolbar-interactive"
+              title="打开目录 (⌘O)"
+              @click="openDirectoryPicker">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path :d="TOOLBAR_ICONS.open" />
               </svg>
             </button>
-            <button class="toolbar-button toolbar-interactive" title="刷新目录" @click="bootstrapSidebar">
+            <button
+              class="toolbar-button toolbar-interactive"
+              title="刷新目录"
+              @click="bootstrapSidebar">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path :d="TOOLBAR_ICONS.refresh" />
               </svg>
             </button>
           </div>
 
-          <div class="toolbar-dropdown toolbar-dropdown--icon toolbar-interactive" :class="{ 'is-open': sortMenuOpen }" ref="sortMenuRef">
+          <div
+            class="toolbar-dropdown toolbar-dropdown--icon toolbar-interactive"
+            :class="{ 'is-open': sortMenuOpen }"
+            ref="sortMenuRef">
             <button
               class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
               :disabled="!hasImages"
@@ -53,6 +62,83 @@
             </div>
           </div>
 
+          <div class="toolbar-icon-group toolbar-view-mode">
+            <button
+              class="toolbar-button toolbar-interactive"
+              :class="{ 'is-active': viewMode === 'regular' }"
+              title="标准视图"
+              :aria-pressed="viewMode === 'regular'"
+              @click="setViewMode('regular')">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.viewRegular" />
+              </svg>
+            </button>
+            <button
+              class="toolbar-button toolbar-interactive"
+              :class="{ 'is-active': viewMode === 'compact' }"
+              title="紧凑视图"
+              :aria-pressed="viewMode === 'compact'"
+              @click="setViewMode('compact')">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.viewCompact" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            class="toolbar-dropdown toolbar-dropdown--icon"
+            :class="{ 'is-open': themeMenuOpen }"
+            ref="themeMenuRef">
+            <button
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon toolbar-interactive"
+              title="主题模式"
+              aria-label="主题模式"
+              @click="toggleThemeMenu">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.theme" />
+              </svg>
+            </button>
+            <div
+              v-if="themeMenuOpen"
+              class="toolbar-dropdown__menu"
+              role="menu">
+              <button
+                v-for="option in themeOptions"
+                :key="option.value"
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="themePreference === option.value"
+                @click="() => selectThemePreference(option.value)">
+                <span class="toolbar-dropdown__check">
+                  {{ themePreference === option.value ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">{{ option.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="toolbar-search">
+            <svg
+              class="toolbar-search__icon"
+              viewBox="0 0 24 24"
+              aria-hidden="true">
+              <path :d="TOOLBAR_ICONS.search" />
+            </svg>
+            <input
+              v-model="searchQuery"
+              class="toolbar-search__input"
+              type="text"
+              placeholder="搜索图片或目录"
+              @keydown.stop />
+            <button
+              v-if="searchQuery"
+              class="toolbar-search__clear"
+              aria-label="清除搜索"
+              @click="clearSearch">
+              ×
+            </button>
+          </div>
+
           <div
             v-if="hasSelection"
             class="toolbar-dropdown toolbar-dropdown--actions toolbar-interactive"
@@ -67,7 +153,10 @@
                 <path :d="TOOLBAR_ICONS.actions" />
               </svg>
             </button>
-            <div v-if="actionsMenuOpen" class="toolbar-dropdown__menu" role="menu">
+            <div
+              v-if="actionsMenuOpen"
+              class="toolbar-dropdown__menu"
+              role="menu">
               <button
                 class="toolbar-dropdown__item"
                 role="menuitem"
@@ -154,41 +243,42 @@
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </header>
 
     <div class="viewer-body">
       <aside class="viewer-sidebar">
-        <div class="sidebar-utility">
-          <button
-            class="sidebar-utility__btn"
-            title="打开目录"
-            @click="openDirectoryPicker">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="SIDEBAR_ICONS.folder" />
-            </svg>
-          </button>
-          <button
-            class="sidebar-utility__btn"
-            title="刷新目录"
-            @click="bootstrapSidebar">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="SIDEBAR_ICONS.refresh" />
-            </svg>
-          </button>
-          <button
-            class="sidebar-utility__btn"
-            :disabled="!canAddFavorite"
-            title="收藏当前目录"
-            @click="addCurrentToFavorites">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path :d="SIDEBAR_ICONS.star" />
-            </svg>
-          </button>
-        </div>
-        <nav class="sidebar-groups">
+        <nav class="sidebar-groups sidebar-groups--flush">
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <span class="sidebar-group__label">收藏图片</span>
+            </header>
+            <ul class="sidebar-list" role="list">
+              <li class="sidebar-list__item">
+                <div class="sidebar-item-row">
+                  <button
+                    class="sidebar-item"
+                    :class="{ 'is-active': isFavoritesView }"
+                    @click="showFavoriteGallery">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.star" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">收藏图片</span>
+                    <span class="sidebar-item__meta"
+                      >{{ favoriteImages.length }} 张</span
+                    >
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!favoriteImages.length" class="sidebar-empty">
+              尚未收藏图片，可在缩略图上点击星标添加
+            </p>
+          </section>
+
           <section class="sidebar-group">
             <header class="sidebar-group__header">
               <button
@@ -202,7 +292,7 @@
                   :class="{ open: groupState.favorites }">
                   <path :d="SIDEBAR_ICONS.chevron" />
                 </svg>
-                收藏夹
+                收藏目录
               </button>
               <button
                 class="sidebar-header-btn"
@@ -214,10 +304,7 @@
                 </svg>
               </button>
             </header>
-            <ul
-              v-show="groupState.favorites"
-              class="sidebar-list"
-              role="list">
+            <ul v-show="groupState.favorites" class="sidebar-list" role="list">
               <li
                 v-for="node in flattenedFavorites"
                 :key="node.path"
@@ -285,10 +372,7 @@
                 系统目录
               </button>
             </header>
-            <ul
-              v-show="groupState.system"
-              class="sidebar-list"
-              role="list">
+            <ul v-show="groupState.system" class="sidebar-list" role="list">
               <li
                 v-for="node in flattenedSystem"
                 :key="node.path"
@@ -355,10 +439,7 @@
                 </svg>
               </button>
             </header>
-            <ul
-              v-show="groupState.custom"
-              class="sidebar-list"
-              role="list">
+            <ul v-show="groupState.custom" class="sidebar-list" role="list">
               <li
                 v-for="node in flattenedCustom"
                 :key="node.path"
@@ -397,97 +478,70 @@
               添加常用的工作目录以便快速访问
             </p>
           </section>
-
-          <section class="sidebar-group">
-            <header class="sidebar-group__header">
-              <button
-                type="button"
-                class="sidebar-group__label"
-                @click="toggleGroup('recent')">
-                <svg
-                  class="sidebar-group__chevron"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  :class="{ open: groupState.recent }">
-                  <path :d="SIDEBAR_ICONS.chevron" />
-                </svg>
-                最近使用
-              </button>
-            </header>
-            <ul
-              v-show="groupState.recent"
-              class="sidebar-list"
-              role="list">
-              <li
-                v-for="entry in recentList"
-                :key="entry.path"
-                class="sidebar-list__item">
-                <button
-                  class="sidebar-item"
-                  :class="{ 'is-active': entry.path === activeNodePath }"
-                  @click="openRecent(entry)">
-                  <span class="sidebar-item__icon">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path :d="SIDEBAR_ICONS.clock" />
-                    </svg>
-                  </span>
-                  <span class="sidebar-item__name">{{ entry.name }}</span>
-                </button>
-              </li>
-            </ul>
-            <p v-if="!recentList.length" class="sidebar-empty">
-              暂无记录
-            </p>
-          </section>
-
         </nav>
       </aside>
 
-    <div class="viewer-main">
-    <section class="viewer-workspace">
-      <div
-        v-if="hasImages"
-        class="viewer-gallery"
-        :style="galleryStyle"
-        ref="galleryRef">
-        <div
-          class="viewer-gallery__spacer"
-          :style="{ height: `${topSpacer}px` }"></div>
-        <div class="viewer-gallery__grid">
-          <button
-            v-for="(item, offset) in virtualItems"
-            :key="item.path"
-            class="viewer-gallery__item"
-            :class="{
-              'is-active': startIndex + offset === currentIndex,
-              'is-selected': selectedIndexes.has(startIndex + offset),
-            }"
-            draggable="true"
-            @click="handleGallerySelection($event, startIndex + offset)"
-            @dblclick.prevent="openLightbox(startIndex + offset)"
-            @dragstart="handleGalleryDragStart($event, startIndex + offset)"
-            @dragend="handleGalleryDragEnd">
+      <div class="viewer-main">
+        <section class="viewer-workspace">
+          <div
+            v-if="hasImages"
+            class="viewer-gallery"
+            :style="galleryStyle"
+            ref="galleryRef">
             <div
-              class="viewer-gallery__asset"
-              :class="{ 'is-ready': isThumbnailReady(item.resource) }">
-              <img :src="getThumbnailSrc(item.resource)" :alt="item.name" loading="lazy" />
+              class="viewer-gallery__spacer"
+              :style="{ height: `${topSpacer}px` }"></div>
+            <div class="viewer-gallery__grid">
+              <button
+                v-for="(item, offset) in virtualItems"
+                :key="item.path"
+                class="viewer-gallery__item"
+                :class="{
+                  'is-active': startIndex + offset === currentIndex,
+                  'is-selected': selectedIndexes.has(startIndex + offset),
+                }"
+                draggable="true"
+                @click="handleGallerySelection($event, startIndex + offset)"
+                @dblclick.prevent="openLightbox(startIndex + offset)"
+                @dragstart="handleGalleryDragStart($event, startIndex + offset)"
+                @dragend="handleGalleryDragEnd">
+                <div
+                  class="viewer-gallery__asset"
+                  :class="{ 'is-ready': isThumbnailReady(item.resource) }">
+                  <img
+                    :src="getThumbnailSrc(item.resource)"
+                    :alt="item.name"
+                    loading="lazy" />
+                </div>
+                <span
+                  class="viewer-gallery__fav"
+                  role="button"
+                  tabindex="0"
+                  :aria-pressed="isImageFavorited(item.path)"
+                  :class="{ 'is-active': isImageFavorited(item.path) }"
+                  title="收藏图片"
+                  @click.stop="toggleImageFavorite(item)"
+                  @keydown.enter.prevent.stop="toggleImageFavorite(item)"
+                  @keydown.space.prevent.stop="toggleImageFavorite(item)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path :d="SIDEBAR_ICONS.star" />
+                  </svg>
+                </span>
+                <p class="viewer-gallery__caption" :title="item.name">
+                  {{ item.name }}
+                </p>
+              </button>
             </div>
-            <p class="viewer-gallery__caption" :title="item.name">
-              {{ item.name }}
-            </p>
-          </button>
-        </div>
-        <div
-          class="viewer-gallery__spacer"
-          :style="{ height: `${bottomSpacer}px` }"></div>
+            <div
+              class="viewer-gallery__spacer"
+              :style="{ height: `${bottomSpacer}px` }"></div>
+          </div>
+          <p v-else class="viewer-gallery__placeholder">
+            请选择目录以加载缩略图
+          </p>
+        </section>
       </div>
-      <p v-else class="viewer-gallery__placeholder">
-        请选择目录以加载缩略图
-      </p>
-    </section>
-  </div>
-
-  </div>
+    </div>
 
     <div v-if="lightboxVisible" class="viewer-lightbox">
       <div class="viewer-lightbox__backdrop" @click="closeLightbox"></div>
@@ -505,48 +559,85 @@
           </div>
           <div class="viewer-lightbox__header-actions">
             <div class="viewer-lightbox__controls">
-              <button class="viewer-lightbox__toolbar-btn" title="放大 (⌘+)" @click="runViewerAction(zoomIn)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="放大 (⌘+)"
+                @click="runViewerAction(zoomIn)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.zoomIn" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="缩小 (⌘-)" @click="runViewerAction(zoomOut)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="缩小 (⌘-)"
+                @click="runViewerAction(zoomOut)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.zoomOut" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="适应窗口 (0)" @click="runViewerAction(resetLightboxView)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="适应窗口 (0)"
+                @click="runViewerAction(resetLightboxView)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.reset" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="旋转 90° (R)" @click="runViewerAction(rotate)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="旋转 90° (R)"
+                @click="runViewerAction(rotate)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.rotate" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="水平翻转" @click="runViewerAction(toggleFlipX)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                :class="{ 'is-active': isCurrentFavorite }"
+                title="收藏图片"
+                @click="toggleCurrentImageFavorite">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.star" />
+                </svg>
+              </button>
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="水平翻转"
+                @click="runViewerAction(toggleFlipX)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.flipX" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="垂直翻转" @click="runViewerAction(toggleFlipY)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="垂直翻转"
+                @click="runViewerAction(toggleFlipY)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.flipY" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" :title="playing ? '暂停幻灯片' : '播放幻灯片'" @click="runViewerAction(toggleSlideshow)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                :title="playing ? '暂停幻灯片' : '播放幻灯片'"
+                @click="runViewerAction(toggleSlideshow)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
+                  <path
+                    :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
                 </svg>
               </button>
-              <button class="viewer-lightbox__toolbar-btn" title="全屏切换" @click="runViewerAction(toggleFullscreen)">
+              <button
+                class="viewer-lightbox__toolbar-btn"
+                title="全屏切换"
+                @click="runViewerAction(toggleFullscreen)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.fullscreen" />
                 </svg>
               </button>
             </div>
-            <button class="viewer-lightbox__toolbar-btn viewer-lightbox__toolbar-btn--close" title="关闭 (Esc)" @click="closeLightbox">
+            <button
+              class="viewer-lightbox__toolbar-btn viewer-lightbox__toolbar-btn--close"
+              title="关闭 (Esc)"
+              @click="closeLightbox">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path :d="SIDEBAR_ICONS.close" />
               </svg>
@@ -617,6 +708,8 @@ import ImageCanvas from "../components/ImageCanvas.vue";
 import { useImageViewer } from "../composables/useImageViewer";
 import { useSlideshow } from "../composables/useSlideshow";
 import { useThumbnailCache } from "../composables/useThumbnailCache";
+import { useSystemTheme } from "../composables/useSystemTheme";
+import type { ThemeMode, ThemePreference } from "../types/theme";
 import {
   computed,
   nextTick,
@@ -627,11 +720,18 @@ import {
   watch,
 } from "vue";
 
+type SidebarNodeType =
+  | "system"
+  | "favorite"
+  | "directory"
+  | "custom"
+  | "history";
+
 type SidebarNode = {
   path: string;
   name: string;
   depth: number;
-  type: "system" | "favorite" | "directory" | "custom" | "history";
+  type: SidebarNodeType;
   isDirectory: boolean;
   isExpanded: boolean;
   isLoading: boolean;
@@ -657,32 +757,40 @@ type ToastMessage = {
   message: string;
   variant: ToastVariant;
 };
+type FavoriteImage = {
+  path: string;
+  name: string;
+  directory: string;
+  extension?: string;
+  modifiedAt?: number;
+  size?: number;
+};
 const SIDEBAR_ICONS: Record<string, string> = {
   folder:
     "M3.5 6.75h5.1l1.6 2.4h10.3c1.1 0 2 .9 2 2v8.1c0 1.1-.9 2-2 2H3.5c-1.1 0-2-.9-2-2V8.75c0-1.1.9-2 2-2z",
-  star:
-    "M12 4.5l2.5 4.9 5.4.8-3.9 3.8.9 5.5L12 16.8l-4.9 2.7.9-5.5-3.9-3.8 5.4-.8z",
+  star: "M12 4.5l2.5 4.9 5.4.8-3.9 3.8.9 5.5L12 16.8l-4.9 2.7.9-5.5-3.9-3.8 5.4-.8z",
   clock:
     "M12 4a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm-.75 3.5v5.25L15 15.2l-.75 1.3-4.5-2.6V7.5z",
-  user:
-    "M12 6a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 7.5c3.2 0 5.5 1.7 5.5 3.6V18H6.5v-.9c0-1.9 2.3-3.6 5.5-3.6z",
+  user: "M12 6a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 7.5c3.2 0 5.5 1.7 5.5 3.6V18H6.5v-.9c0-1.9 2.3-3.6 5.5-3.6z",
   plus: "M12 5v6H6v2h6v6h2v-6h6v-2h-6V5z",
   refresh:
     "M12 4a8 8 0 0 1 7.9 7.1H22l-3.3 3.9L15.5 11h2.1A6 6 0 1 0 18 13h2a8 8 0 1 1-8-9z",
   chevron: "M9 6l6 6-6 6",
-  close:
-    "M8.5 8.5l6.9 6.9m0-6.9-6.9 6.9",
+  close: "M8.5 8.5l6.9 6.9m0-6.9-6.9 6.9",
 };
 const TOOLBAR_ICONS = {
-  viewer:
-    "M5 7h14l2 2v9l-2 2H5l-2-2V9z M7.5 5h9l1.5 2m-11 0h9",
+  viewer: "M5 7h14l2 2v9l-2 2H5l-2-2V9z M7.5 5h9l1.5 2m-11 0h9",
   sort: "M5 7h14M5 12h10M5 17h7",
-  open:
-    "M5 6h5.2l1.6 2H19a1 1 0 0 1 1 1v9H4V7a1 1 0 0 1 1-1zm-1 12h16v2H4z",
+  open: "M5 6h5.2l1.6 2H19a1 1 0 0 1 1 1v9H4V7a1 1 0 0 1 1-1zm-1 12h16v2H4z",
   refresh:
     "M12 5a7 7 0 0 1 6.9 6H21l-3.5 3.5L14 11h2.2A5 5 0 1 0 17 13h2a7 7 0 1 1-7-8z",
   actions:
     "M7 12a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z",
+  viewRegular: "M5 7h5v5H5zM14 7h5v5h-5zM5 14h5v5H5zM14 14h5v5h-5z",
+  viewCompact: "M5 9h14M5 15h14",
+  search: "M11 5a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm7 12 3 3",
+  theme: "M12 4a4 4 0 1 0 0 8 6 6 0 1 1 0 8 8 8 0 1 1 0-16z",
+  recent: SIDEBAR_ICONS.clock,
   zoomIn:
     "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-.75 2.5h1.5v1.75H13.5v1.5h-1.75V13.5h-1.5v-1.75H8.5v-1.5h1.75V8.5zM18.5 18.5l3 3-1.5 1.5-3-3z",
   zoomOut:
@@ -692,8 +800,7 @@ const TOOLBAR_ICONS = {
     "M12 4a6 6 0 0 1 5.8 7.4l-1.9-.5A4 4 0 0 0 12 6v2L7.5 4.5 12 1v3zM6 12a6 6 0 0 0 9.5 4.9l1.1 1.6A8 8 0 1 1 6 5.1L7.2 6.7A6 6 0 0 0 6 12z",
   flipX: "M5 6h14v2H5zm0 10h14v2H5zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z",
   flipY: "M6 5h2v14H6zm10 0h2v14h-2zM9 7h6v2H9zm0 4h6v2H9zm0 4h6v2H9z",
-  play:
-    "M8.5 6.5l8 5.5-8 5.5v-11zM5 6h2v12H5z",
+  play: "M8.5 6.5l8 5.5-8 5.5v-11zM5 6h2v12H5z",
   pause: "M7 6h3v12H7zm7 0h3v12h-3z",
   fullscreen:
     "M6 6h5v2H8v3H6zm10 0v5h-2V8h-3V6zm-3 10h3v-3h2v5h-5zm-4 0v2H6v-5h2v3z",
@@ -703,23 +810,25 @@ const ACTION_ICONS = {
     "M8 6h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm-3 3h3m-3 4h3m-3 4h3",
   reveal:
     "M12 5a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm0 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zm2 1.5 3.5 3.5",
-  rename:
-    "M6 17.5V20h2.5l9.2-9.2-2.5-2.5zm10.1-10.1 3-3 1.5 1.5-3 3z",
-  copyToDirectory:
-    "M7 9h10a2 2 0 0 1 2 2v7H7V9zm0 0v12m5-8 3-3m-3 3 3 3",
+  rename: "M6 17.5V20h2.5l9.2-9.2-2.5-2.5zm10.1-10.1 3-3 1.5 1.5-3 3z",
+  copyToDirectory: "M7 9h10a2 2 0 0 1 2 2v7H7V9zm0 0v12m5-8 3-3m-3 3 3 3",
   moveToDirectory:
     "M7 9h11a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H7zm5 0v12",
-  export:
-    "M7 12l4-4 4 4m-4-4v11m-5 0h10",
-  delete:
-    "M9 7h6l1.5 2h3v2H4.5V9h3z M9 11v7m6-7v7",
+  export: "M7 12l4-4 4 4m-4-4v11m-5 0h10",
+  delete: "M9 7h6l1.5 2h3v2H4.5V9h3z M9 11v7m6-7v7",
 };
 type RecentEntry = { path: string; name: string };
 type CustomEntry = { id: string; path: string; name: string };
 
+type ViewMode = "regular" | "compact";
 const imageList = ref<GalleryItem[]>([]);
 const currentIndex = ref(0);
-const THUMBNAIL_SIZE = 120;
+const viewMode = ref<ViewMode>("regular");
+const VIEW_MODE_SIZES: Record<ViewMode, number> = {
+  regular: 128,
+  compact: 96,
+};
+const searchQuery = ref("");
 const sortMode = ref<SortMode>("name-asc");
 const activeNodePath = ref("");
 const lightboxVisible = ref(false);
@@ -734,12 +843,20 @@ const dragPayload = reactive({
   sourcePath: "",
 });
 const dragOverPath = ref<string | null>(null);
-const RECENT_STORAGE_KEY = "photon:sidebar:recents";
+const FAVORITES_COLLECTION_PATH = "__favorites__";
+const FAVORITES_COLLECTION_LABEL = "收藏图片";
+const RECENT_STORAGE_KEY = "photon:recent-directories";
 const CUSTOM_STORAGE_KEY = "photon:sidebar:custom";
 const DRAG_MIME_TYPE = "application/x-photon-gallery";
+const FAVORITE_IMAGES_KEY = "photon:favorites:images";
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
 let toastSeed = 0;
+const MAX_BOOTSTRAP_RETRY = 3;
+const BOOTSTRAP_RETRY_DELAY = 600;
+let bootstrapRetryCount = 0;
+let bootstrapRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
+const favoriteImages = ref<FavoriteImage[]>([]);
 const actionsMenuOpen = ref(false);
 const actionsMenuRef = ref<HTMLElement | null>(null);
 const sortMenuOpen = ref(false);
@@ -747,10 +864,12 @@ const sortMenuRef = ref<HTMLElement | null>(null);
 const recentDirectories = ref<RecentEntry[]>([]);
 const customEntries = ref<CustomEntry[]>([]);
 const customRoots = ref<SidebarNode[]>([]);
+const isFavoritesView = computed(
+  () => activeNodePath.value === FAVORITES_COLLECTION_PATH
+);
 const groupState = reactive({
   favorites: true,
   system: true,
-  recent: true,
   custom: true,
 });
 const toggleGroup = (key: keyof typeof groupState) => {
@@ -758,12 +877,22 @@ const toggleGroup = (key: keyof typeof groupState) => {
 };
 const viewerMenuOpen = ref(false);
 const viewerMenuRef = ref<HTMLElement | null>(null);
+const themeMenuOpen = ref(false);
+const themeMenuRef = ref<HTMLElement | null>(null);
 const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: "name-asc", label: "名称 A→Z" },
   { value: "name-desc", label: "名称 Z→A" },
   { value: "modified-desc", label: "最近修改" },
   { value: "size-desc", label: "文件大小" },
 ];
+const themeOptions: Array<{ value: ThemePreference; label: string }> = [
+  { value: "auto", label: "自动" },
+  { value: "light", label: "浅色" },
+  { value: "dark", label: "深色" },
+];
+const { setTheme, getTheme, subscribe: subscribeTheme } = useSystemTheme();
+const themePreference = ref<ThemePreference>(getTheme().preference);
+const themeMode = ref<ThemeMode>(getTheme().mode);
 
 const {
   scale,
@@ -800,7 +929,19 @@ const sortedItems = computed(() => {
   }
 });
 
-const galleryItems = computed(() => sortedItems.value);
+const galleryItems = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) {
+    return sortedItems.value;
+  }
+  const nodeName = currentNode.value?.name?.toLowerCase() ?? "";
+  return sortedItems.value.filter(
+    (item) =>
+      item.name.toLowerCase().includes(query) ||
+      nodeName.includes(query) ||
+      getDirectoryFromPath(item.path).toLowerCase().includes(query)
+  );
+});
 
 const hasImages = computed(() => galleryItems.value.length > 0);
 const canPlaySlideshow = computed(() => galleryItems.value.length > 1);
@@ -808,6 +949,14 @@ const currentImage = computed(
   () => galleryItems.value[currentIndex.value]?.resource ?? ""
 );
 const currentMetadata = computed(() => galleryItems.value[currentIndex.value]);
+const currentGalleryItem = computed(
+  () => galleryItems.value[currentIndex.value]
+);
+const isCurrentFavorite = computed(() =>
+  currentGalleryItem.value
+    ? isImageFavorited(currentGalleryItem.value.path)
+    : false
+);
 const selectedCount = computed(() => selectedIndexes.value.size);
 const hasSelection = computed(() => selectedIndexes.value.size > 0);
 const selectedGalleryItems = computed(() =>
@@ -841,12 +990,15 @@ const canAddFavorite = computed(
 const flattenedFavorites = computed(() => flattenNodes(favoriteRoots.value));
 const flattenedSystem = computed(() => flattenNodes(systemRoots.value));
 const flattenedCustom = computed(() => flattenNodes(customRoots.value));
-const recentList = computed(() => recentDirectories.value);
-const currentDirectoryLabel = computed(
-  () => currentNode.value?.path ?? "未选择目录"
-);
+const currentDirectoryLabel = computed(() => {
+  if (isFavoritesView.value) {
+    return FAVORITES_COLLECTION_LABEL;
+  }
+  return currentNode.value?.path ?? "未选择目录";
+});
+const thumbnailSize = computed(() => VIEW_MODE_SIZES[viewMode.value]);
 const galleryStyle = computed(() => ({
-  "--thumb-size": `${THUMBNAIL_SIZE}px`,
+  "--thumb-size": `${thumbnailSize.value}px`,
 }));
 const canPan = computed(() => scale.value > 1.02);
 
@@ -868,11 +1020,15 @@ let stopWatchingDirectory: (() => void) | null = null;
 const thumbnailCache = useThumbnailCache();
 let cleanupAppAction: (() => void) | null = null;
 let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
+let unsubscribeThemeState: (() => void) | null = null;
 
 const columns = computed(() =>
-  Math.max(1, Math.floor(containerSize.width / Math.max(80, THUMBNAIL_SIZE + 10)))
+  Math.max(
+    1,
+    Math.floor(containerSize.width / Math.max(80, thumbnailSize.value + 14))
+  )
 );
-const rowHeight = computed(() => THUMBNAIL_SIZE + 10);
+const rowHeight = computed(() => thumbnailSize.value + 14);
 const totalRows = computed(() =>
   Math.ceil(galleryItems.value.length / columns.value)
 );
@@ -884,10 +1040,7 @@ const startRow = computed(() =>
   Math.max(0, Math.floor(scrollTop.value / rowHeight.value) - bufferRows)
 );
 const endRow = computed(() =>
-  Math.min(
-    totalRows.value,
-    startRow.value + visibleRows.value + bufferRows * 2
-  )
+  Math.min(totalRows.value, startRow.value + visibleRows.value + bufferRows * 2)
 );
 const startIndex = computed(() => startRow.value * columns.value);
 const endIndex = computed(() =>
@@ -904,9 +1057,18 @@ const bottomSpacer = computed(() =>
 onMounted(async () => {
   loadCustomDirectories();
   loadRecentDirectories();
+  loadFavoriteImages();
   await bootstrapSidebar();
   setupGalleryObservers();
   window.addEventListener("keydown", handleKeydown);
+  const initialTheme = getTheme();
+  themePreference.value = initialTheme.preference;
+  themeMode.value = initialTheme.mode;
+  unsubscribeThemeState = subscribeTheme((state) => {
+    themePreference.value = state.preference;
+    themeMode.value = state.mode;
+  });
+
   handleOutsideClick = (event: MouseEvent) => {
     const target = event.target as Node;
     if (actionsMenuOpen.value) {
@@ -925,6 +1087,12 @@ onMounted(async () => {
       const viewerEl = viewerMenuRef.value;
       if (viewerEl && !viewerEl.contains(target)) {
         closeViewerMenu();
+      }
+    }
+    if (themeMenuOpen.value) {
+      const themeEl = themeMenuRef.value;
+      if (themeEl && !themeEl.contains(target)) {
+        closeThemeMenu();
       }
     }
   };
@@ -947,12 +1115,18 @@ onBeforeUnmount(() => {
   clearToastTimers();
   stopWatchingDirectory?.();
   stopWatchingDirectory = null;
+  if (bootstrapRetryTimer) {
+    window.clearTimeout(bootstrapRetryTimer);
+    bootstrapRetryTimer = null;
+  }
   if (handleOutsideClick) {
     document.removeEventListener("mousedown", handleOutsideClick);
     handleOutsideClick = null;
   }
   cleanupAppAction?.();
   cleanupAppAction = null;
+  unsubscribeThemeState?.();
+  unsubscribeThemeState = null;
 });
 
 watch(hasImages, async (value) => {
@@ -966,7 +1140,23 @@ watch(hasImages, async (value) => {
 });
 
 async function bootstrapSidebar() {
-  await Promise.all([loadSystemDirectories(), loadFavorites()]);
+  const electronApi = window.electron;
+  if (!electronApi?.fs || !electronApi?.favorites) {
+    scheduleBootstrapRetry();
+    return;
+  }
+
+  try {
+    await Promise.all([loadSystemDirectories(), loadFavorites()]);
+    bootstrapRetryCount = 0;
+    if (bootstrapRetryTimer) {
+      window.clearTimeout(bootstrapRetryTimer);
+      bootstrapRetryTimer = null;
+    }
+  } catch (error) {
+    console.error("初始化侧栏失败", error);
+    scheduleBootstrapRetry();
+  }
 }
 
 function setupGalleryObservers() {
@@ -1003,7 +1193,7 @@ type CreateNodeOptions = {
   path: string;
   name: string;
   depth: number;
-  type: "system" | "favorite" | "directory";
+  type: SidebarNodeType;
   favoriteId?: string;
   register?: boolean;
   reuseExisting?: boolean;
@@ -1061,7 +1251,9 @@ function findNodeByPath(path: string, roots: SidebarNode[]) {
 
 async function loadSystemDirectories() {
   const fs = window.electron?.fs;
-  if (!fs) return;
+  if (!fs) {
+    throw new Error("文件系统 API 未就绪");
+  }
   const dirs = await fs.getSystemDirectories();
   systemRoots.value = dirs.map((dir) =>
     createNode({ path: dir.path, name: dir.name, depth: 0, type: "system" })
@@ -1069,11 +1261,11 @@ async function loadSystemDirectories() {
 }
 
 async function loadFavorites() {
-  const favorites = await window.electron?.favorites.list();
-  if (!favorites) {
-    favoriteRoots.value = [];
-    return;
+  const favoritesApi = window.electron?.favorites;
+  if (!favoritesApi) {
+    throw new Error("收藏 API 未就绪");
   }
+  const favorites = await favoritesApi.list();
   favoriteRoots.value = favorites.map((fav) =>
     createNode({
       path: fav.path,
@@ -1099,19 +1291,24 @@ function loadRecentDirectories() {
 
 function saveRecentDirectories() {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(recentDirectories.value));
+  localStorage.setItem(
+    RECENT_STORAGE_KEY,
+    JSON.stringify(recentDirectories.value)
+  );
 }
 
 function trackRecentDirectory(path: string, name: string) {
   if (!path) return;
-  const entries = recentDirectories.value.filter((entry) => entry.path !== path);
+  const entries = recentDirectories.value.filter(
+    (entry) => entry.path !== path
+  );
   entries.unshift({ path, name });
   recentDirectories.value = entries.slice(0, 10);
   saveRecentDirectories();
 }
 
-async function openRecent(entry: RecentEntry) {
-  await activateDirectory(entry);
+function clearSearch() {
+  searchQuery.value = "";
 }
 
 function loadCustomDirectories() {
@@ -1150,12 +1347,140 @@ function syncCustomNodes() {
   });
 }
 
+function setViewMode(mode: ViewMode) {
+  viewMode.value = mode;
+}
+
+function loadFavoriteImages() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    const stored = localStorage.getItem(FAVORITE_IMAGES_KEY);
+    if (!stored) {
+      favoriteImages.value = [];
+      return;
+    }
+    const parsed = JSON.parse(stored) as Array<Partial<FavoriteImage>>;
+    favoriteImages.value = Array.isArray(parsed)
+      ? parsed
+          .filter(
+            (item): item is Partial<FavoriteImage> & { path: string } =>
+              !!item?.path
+          )
+          .map((item) => ({
+            path: item.path,
+            name: item.name ?? extractName(item.path),
+            directory: item.directory ?? getDirectoryFromPath(item.path),
+            extension: item.extension,
+            modifiedAt: item.modifiedAt,
+            size: item.size,
+          }))
+      : [];
+  } catch {
+    favoriteImages.value = [];
+  }
+}
+
+function saveFavoriteImages() {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(
+    FAVORITE_IMAGES_KEY,
+    JSON.stringify(favoriteImages.value)
+  );
+}
+
+function isImageFavorited(path: string) {
+  return favoriteImages.value.some((fav) => fav.path === path);
+}
+
+function getDirectoryFromPath(path: string) {
+  const normalized = path.replace(/\\/g, "/");
+  const index = normalized.lastIndexOf("/");
+  if (index <= 0) return normalized;
+  return normalized.slice(0, index);
+}
+
+function addFavoriteImage(item: GalleryItem) {
+  const directory = getDirectoryFromPath(item.path);
+  const payload: FavoriteImage = {
+    path: item.path,
+    name: item.name,
+    directory,
+    extension: item.extension,
+    modifiedAt: item.modifiedAt,
+    size: item.size,
+  };
+  favoriteImages.value = [
+    payload,
+    ...favoriteImages.value.filter((fav) => fav.path !== item.path),
+  ];
+  saveFavoriteImages();
+  showToast(`已收藏 ${item.name}`, "success");
+}
+
+function removeFavoriteImage(path: string) {
+  favoriteImages.value = favoriteImages.value.filter(
+    (fav) => fav.path !== path
+  );
+  saveFavoriteImages();
+  showToast("已移除收藏图片", "info");
+}
+
+function toggleImageFavorite(item: GalleryItem) {
+  if (isImageFavorited(item.path)) {
+    removeFavoriteImage(item.path);
+    showToast(`已取消收藏 ${item.name}`, "info");
+  } else {
+    addFavoriteImage(item);
+  }
+}
+
+function toggleCurrentImageFavorite() {
+  const current = currentGalleryItem.value;
+  if (!current) return;
+  toggleImageFavorite(current);
+}
+
+function buildFavoriteGalleryItems(): GalleryItem[] {
+  return favoriteImages.value.map((fav) => ({
+    path: fav.path,
+    resource: toImageResource(fav.path),
+    name: fav.name,
+    extension: fav.extension,
+    modifiedAt: fav.modifiedAt ?? 0,
+    size: fav.size ?? 0,
+  }));
+}
+
+async function openFavoriteImage(favorite: FavoriteImage) {
+  if (searchQuery.value) {
+    searchQuery.value = "";
+  }
+  await activateDirectory({
+    path: favorite.directory,
+    name: extractName(favorite.directory),
+  });
+  await nextTick();
+  const index = galleryItems.value.findIndex(
+    (item) => item.path === favorite.path
+  );
+  if (index >= 0) {
+    openLightbox(index);
+  } else {
+    showToast("该图片不在当前目录中", "info");
+  }
+}
+
 async function addCustomDirectory() {
-  const directory = await window.electron?.selectDirectory?.({ title: "添加自定义目录" });
+  const directory = await window.electron?.selectDirectory?.({
+    title: "添加自定义目录",
+  });
   if (!directory) return;
   const name = extractName(directory);
   const id = crypto.randomUUID?.() ?? `${Date.now()}`;
-  customEntries.value = [{ id, path: directory, name }, ...customEntries.value.filter((entry) => entry.path !== directory)];
+  customEntries.value = [
+    { id, path: directory, name },
+    ...customEntries.value.filter((entry) => entry.path !== directory),
+  ];
   saveCustomDirectories();
   syncCustomNodes();
 }
@@ -1218,10 +1543,23 @@ async function selectNode(node: SidebarNode) {
 async function loadImagesForDirectory(path: string) {
   const fs = window.electron?.fs;
   if (!fs) return;
-  const result = await fs.readDirectory(path, { filter: "images" });
+
+  // 支持的图片扩展名
+  const supportedExtensions = [
+    "jpg", "jpeg", "png", "gif", "bmp", "webp",
+    "psd", "raw", "dng", "tiff", "heic"
+  ];
+
+  // 读取目录（不使用 filter，让我们自己筛选）
+  const result = await fs.readDirectory(path);
+
   imageList.value =
     result?.items
-      .filter((item) => item.type === "file")
+      .filter(
+        (item) =>
+          item.type === "file" &&
+          supportedExtensions.includes(item.extension.toLowerCase())
+      )
       .map((item) => ({
         path: item.path,
         resource: toImageResource(item.path),
@@ -1230,6 +1568,8 @@ async function loadImagesForDirectory(path: string) {
         modifiedAt: item.modifiedAt,
         size: item.size,
       })) ?? [];
+
+  // 重置 lightbox 状态
   currentIndex.value = 0;
   lightboxVisible.value = false;
   resetLightboxView();
@@ -1310,8 +1650,7 @@ watch(playing, (isPlaying) => {
   if (isPlaying && canPlaySlideshow.value) {
     start(() => {
       if (!galleryItems.value.length) return;
-      currentIndex.value =
-        (currentIndex.value + 1) % galleryItems.value.length;
+      currentIndex.value = (currentIndex.value + 1) % galleryItems.value.length;
     });
   } else {
     stop();
@@ -1366,7 +1705,12 @@ function zoomTo(targetScale: number, origin?: { x: number; y: number }) {
   setScale(targetScale);
   applyOffset(offset.x, offset.y);
 
-  if (!origin || !lightboxCanvasRef.value || scale.value <= 1 || previous === scale.value) {
+  if (
+    !origin ||
+    !lightboxCanvasRef.value ||
+    scale.value <= 1 ||
+    previous === scale.value
+  ) {
     if (scale.value <= 1) {
       setOffset(0, 0);
     }
@@ -1586,7 +1930,11 @@ async function handleNodeDrop(node: SidebarNode, event: DragEvent) {
     return;
   }
   const copyMode = event.altKey || event.metaKey;
-  if (!copyMode && dragPayload.sourcePath && dragPayload.sourcePath === targetPath) {
+  if (
+    !copyMode &&
+    dragPayload.sourcePath &&
+    dragPayload.sourcePath === targetPath
+  ) {
     showToast("图片已在当前目录中", "info");
     clearDragPayload();
     return;
@@ -1621,11 +1969,7 @@ async function handleNodeDrop(node: SidebarNode, event: DragEvent) {
 }
 
 function canDropOnNode(node: SidebarNode) {
-  return (
-    !!node.path &&
-    !!dragPayload.indexes.length &&
-    node.isDirectory
-  );
+  return !!node.path && !!dragPayload.indexes.length && node.isDirectory;
 }
 
 function getDraggedItems(indexes = dragPayload.indexes) {
@@ -1636,7 +1980,8 @@ function getDraggedItems(indexes = dragPayload.indexes) {
 
 function setDropEffect(event: DragEvent) {
   if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = event.altKey || event.metaKey ? "copy" : "move";
+    event.dataTransfer.dropEffect =
+      event.altKey || event.metaKey ? "copy" : "move";
   }
 }
 
@@ -1645,7 +1990,6 @@ function clearDragPayload() {
   dragPayload.sourcePath = "";
   dragOverPath.value = null;
 }
-
 
 function selectAll() {
   if (!galleryItems.value.length) return;
@@ -1802,11 +2146,6 @@ function clampOffset(x: number, y: number) {
   };
 }
 
-function startMomentum() {
-  // 暂时禁用惯性滚动，让拖动体验更加可控、不会“跳太远”
-  cancelMomentum();
-}
-
 function cancelMomentum() {
   if (momentumFrame) {
     cancelAnimationFrame(momentumFrame);
@@ -1830,6 +2169,9 @@ function toggleActionsMenu() {
   if (sortMenuOpen.value) {
     closeSortMenu();
   }
+  if (themeMenuOpen.value) {
+    closeThemeMenu();
+  }
   actionsMenuOpen.value = !actionsMenuOpen.value;
 }
 
@@ -1850,6 +2192,9 @@ function toggleSortMenu() {
   if (viewerMenuOpen.value) {
     closeViewerMenu();
   }
+  if (themeMenuOpen.value) {
+    closeThemeMenu();
+  }
   sortMenuOpen.value = !sortMenuOpen.value;
 }
 
@@ -1862,19 +2207,30 @@ function selectSort(mode: SortMode) {
   closeSortMenu();
 }
 
-function toggleViewerMenu() {
-  if (!lightboxVisible.value) return;
+function closeViewerMenu() {
+  viewerMenuOpen.value = false;
+}
+
+function toggleThemeMenu() {
   if (actionsMenuOpen.value) {
     closeActionsMenu();
   }
   if (sortMenuOpen.value) {
     closeSortMenu();
   }
-  viewerMenuOpen.value = !viewerMenuOpen.value;
+  if (viewerMenuOpen.value) {
+    closeViewerMenu();
+  }
+  themeMenuOpen.value = !themeMenuOpen.value;
 }
 
-function closeViewerMenu() {
-  viewerMenuOpen.value = false;
+function closeThemeMenu() {
+  themeMenuOpen.value = false;
+}
+
+function selectThemePreference(value: ThemePreference) {
+  setTheme(value);
+  closeThemeMenu();
 }
 
 function runViewerAction(fn: () => void) {
@@ -1943,6 +2299,18 @@ async function refreshCurrentDirectory() {
   }
 }
 
+function scheduleBootstrapRetry() {
+  if (bootstrapRetryCount >= MAX_BOOTSTRAP_RETRY) return;
+  if (bootstrapRetryTimer) {
+    window.clearTimeout(bootstrapRetryTimer);
+  }
+  const delay = BOOTSTRAP_RETRY_DELAY * Math.pow(2, bootstrapRetryCount);
+  bootstrapRetryTimer = window.setTimeout(() => {
+    bootstrapSidebar();
+  }, delay);
+  bootstrapRetryCount += 1;
+}
+
 async function renameSelected() {
   if (selectedGalleryItems.value.length !== 1 || !window.electron?.fileOps)
     return;
@@ -2009,7 +2377,12 @@ async function copySelectedToDirectory() {
       selectedGalleryItems.value.map((item) => item.path),
       destination
     );
-    showToast(`已复制 ${selectedGalleryItems.value.length} 张到 ${extractName(destination)}`, "success");
+    showToast(
+      `已复制 ${selectedGalleryItems.value.length} 张到 ${extractName(
+        destination
+      )}`,
+      "success"
+    );
     if (destination === activeNodePath.value) {
       await refreshCurrentDirectory();
     }
@@ -2056,11 +2429,11 @@ async function moveSelectedToDirectory() {
   gap: 12px;
   padding: 0 var(--viewer-pad) 20px;
   color: var(--color-text);
-  background: linear-gradient(180deg, #fefefe 0%, #f1f3f8 38%, #e7ebf3 100%);
+  background: var(--color-window);
   box-sizing: border-box;
   overflow: hidden;
-  font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
+  font-family: "SF Pro Text", "SF Pro Display", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .viewer-body {
@@ -2145,7 +2518,8 @@ async function moveSelectedToDirectory() {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
   color: rgba(28, 28, 30, 0.75);
 }
 
@@ -2232,9 +2606,65 @@ async function moveSelectedToDirectory() {
   color: #0a84ff;
 }
 
+.toolbar-button.is-active {
+  background: rgba(92, 107, 192, 0.18);
+  border-color: rgba(92, 107, 192, 0.5);
+  color: #1e3a8a;
+}
+
 .toolbar-button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.toolbar-view-mode {
+  gap: 6px;
+}
+
+.toolbar-search {
+  position: relative;
+  width: 240px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 100, 120, 0.16);
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.toolbar-search__icon {
+  width: 16px;
+  height: 16px;
+  color: rgba(60, 60, 67, 0.6);
+  margin-right: 6px;
+}
+
+.toolbar-search__icon path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.toolbar-search__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: rgba(28, 28, 30, 0.9);
+  outline: none;
+}
+
+.toolbar-search__clear {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: rgba(60, 60, 67, 0.5);
+  cursor: pointer;
+  padding: 0 4px;
 }
 
 .viewer-sidebar {
@@ -2245,18 +2675,18 @@ async function moveSelectedToDirectory() {
   padding: 18px 12px;
   border-radius: 18px;
   border: 1px solid rgba(120, 130, 150, 0.08);
-  background: linear-gradient(180deg, rgba(248, 249, 252, 0.72), rgba(244, 246, 250, 0.82));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 25px 60px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(
+    180deg,
+    rgba(248, 249, 252, 0.72),
+    rgba(244, 246, 250, 0.82)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 25px 60px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(28px) saturate(160%);
 }
 
 .sidebar-utility {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 6px 8px;
-  border-bottom: 1px solid rgba(120, 130, 150, 0.08);
-  margin-bottom: 10px;
+  display: none;
 }
 
 .sidebar-utility__btn {
@@ -2299,6 +2729,11 @@ async function moveSelectedToDirectory() {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.sidebar-groups--flush {
+  padding-right: 0;
+  gap: 14px;
 }
 
 .sidebar-group__header {
@@ -2473,13 +2908,20 @@ async function moveSelectedToDirectory() {
   text-overflow: ellipsis;
 }
 
+.sidebar-item--favorite-image {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(90, 100, 120, 0.14);
+  padding: 4px 12px;
+}
+
 .sidebar-item__action {
   border: none;
   background: transparent;
   color: rgba(60, 60, 67, 0.5);
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2488,11 +2930,11 @@ async function moveSelectedToDirectory() {
 }
 
 .sidebar-item__action svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 1.6;
 }
 
 .sidebar-item__action:hover {
@@ -2645,6 +3087,19 @@ async function moveSelectedToDirectory() {
 .toolbar-dropdown__label {
   flex: 1;
   text-align: left;
+}
+
+.toolbar-dropdown__meta {
+  display: block;
+  font-size: 11px;
+  color: rgba(60, 60, 67, 0.55);
+}
+
+.toolbar-dropdown__empty {
+  margin: 4px 0 0;
+  padding: 6px;
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.5);
 }
 
 .toolbar-dropdown__icon {
@@ -2875,7 +3330,10 @@ async function moveSelectedToDirectory() {
 
 .viewer-gallery__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size, 120px), var(--thumb-size, 120px)));
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--thumb-size, 120px), var(--thumb-size, 120px))
+  );
   grid-auto-rows: auto;
   justify-content: flex-start;
   gap: 12px;
@@ -2897,8 +3355,8 @@ async function moveSelectedToDirectory() {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease,
-    border-color 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .viewer-gallery__item:hover {
@@ -2935,7 +3393,12 @@ async function moveSelectedToDirectory() {
   border-radius: 10px;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.12), rgba(92, 107, 192, 0.12), rgba(255, 255, 255, 0.12));
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(92, 107, 192, 0.12),
+    rgba(255, 255, 255, 0.12)
+  );
   background-size: 200% 200%;
   animation: viewer-skeleton 1.2s ease infinite;
 }
@@ -2974,6 +3437,39 @@ async function moveSelectedToDirectory() {
   border-color: rgba(10, 132, 255, 0.75);
   background: rgba(10, 132, 255, 0.16);
   box-shadow: 0 4px 18px rgba(10, 132, 255, 0.4);
+}
+
+.viewer-gallery__fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(180, 190, 210, 0.9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.viewer-gallery__fav svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.viewer-gallery__fav.is-active {
+  background: rgba(255, 255, 255, 0.95);
+  color: #f6ad55;
+}
+
+.viewer-gallery__fav:hover {
+  background: rgba(10, 132, 255, 0.15);
+  color: #0a84ff;
 }
 
 .viewer-gallery__placeholder {
@@ -3086,7 +3582,11 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__backdrop {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(66, 165, 245, 0.25), transparent 45%),
+  background: radial-gradient(
+      circle at 20% 20%,
+      rgba(66, 165, 245, 0.25),
+      transparent 45%
+    ),
     radial-gradient(circle at 80% 0%, rgba(124, 87, 255, 0.25), transparent 50%),
     rgba(3, 6, 14, 0.85);
 }
@@ -3179,6 +3679,11 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__toolbar-btn:hover {
   background: rgba(66, 165, 245, 0.25);
   border-color: rgba(66, 165, 245, 0.6);
+}
+
+.viewer-lightbox__toolbar-btn.is-active {
+  background: rgba(66, 165, 245, 0.3);
+  border-color: rgba(66, 165, 245, 0.8);
 }
 
 .viewer-lightbox__toolbar-btn--close {
@@ -3486,5 +3991,165 @@ async function moveSelectedToDirectory() {
   .viewer-sidebar {
     width: 100%;
   }
+}
+
+:root[data-theme="dark"] .viewer {
+  background: radial-gradient(
+      circle at top,
+      rgba(68, 78, 120, 0.2),
+      transparent 60%
+    ),
+    var(--color-window);
+}
+
+:root[data-theme="dark"] .viewer-unified-toolbar {
+  background: rgba(21, 23, 34, 0.88);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 30px rgba(3, 3, 5, 0.65);
+}
+
+:root[data-theme="dark"] .toolbar-title,
+:root[data-theme="dark"] .toolbar-dropdown__item,
+:root[data-theme="dark"] .toolbar-dropdown__label {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .toolbar-title__path,
+:root[data-theme="dark"] .toolbar-dropdown__meta,
+:root[data-theme="dark"] .toolbar-search__input {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+:root[data-theme="dark"] .toolbar-button,
+:root[data-theme="dark"] .toolbar-dropdown__trigger,
+:root[data-theme="dark"] .toolbar-search {
+  background: rgba(34, 37, 54, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--color-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .toolbar-button:hover:not(:disabled),
+:root[data-theme="dark"] .toolbar-dropdown__trigger:not(:disabled):hover {
+  background: rgba(91, 104, 168, 0.35);
+  border-color: rgba(145, 167, 255, 0.6);
+  color: #a5b4ff;
+}
+
+:root[data-theme="dark"] .toolbar-search__input {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .toolbar-dropdown__menu {
+  background: rgba(18, 20, 32, 0.96);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(3, 5, 15, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .toolbar-dropdown__item:not(:disabled):hover {
+  background: rgba(93, 130, 255, 0.18);
+}
+
+:root[data-theme="dark"] .viewer-sidebar {
+  background: linear-gradient(
+    180deg,
+    rgba(18, 20, 32, 0.95),
+    rgba(12, 14, 24, 0.95)
+  );
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(2, 3, 10, 0.7);
+}
+
+:root[data-theme="dark"] .sidebar-item--favorite-image {
+  background: rgba(30, 34, 50, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .sidebar-group__label {
+  color: rgba(209, 213, 224, 0.7);
+}
+
+:root[data-theme="dark"] .sidebar-item {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .sidebar-item__icon {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .sidebar-item.is-active {
+  background: rgba(95, 116, 255, 0.2);
+  color: var(--color-primary);
+}
+
+:root[data-theme="dark"] .viewer-gallery {
+  background: var(--color-surface);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(4, 6, 14, 0.65);
+}
+
+:root[data-theme="dark"] .viewer-gallery__item {
+  background: rgba(22, 24, 34, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .viewer-gallery__item.is-selected {
+  background: linear-gradient(
+    180deg,
+    rgba(93, 130, 255, 0.3),
+    rgba(77, 94, 196, 0.25)
+  );
+  border-color: rgba(145, 167, 255, 0.6);
+}
+
+:root[data-theme="dark"] .viewer-gallery__fav {
+  background: rgba(20, 23, 32, 0.9);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+:root[data-theme="dark"] .viewer-gallery__fav.is-active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #f9e2af;
+}
+
+:root[data-theme="dark"] .toolbar-dropdown__menu .toolbar-dropdown__meta {
+  color: rgba(226, 232, 240, 0.6);
+}
+
+:root[data-theme="dark"] .viewer-lightbox__content {
+  background: rgba(12, 16, 32, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 35px 70px rgba(2, 3, 10, 0.8);
+}
+
+:root[data-theme="dark"] .viewer-lightbox__canvas {
+  background: rgba(8, 10, 24, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .viewer-lightbox__nav {
+  background: rgba(15, 18, 32, 0.55);
+}
+
+:root[data-theme="dark"] .viewer-lightbox__nav:hover:not(:disabled) {
+  background: rgba(145, 167, 255, 0.45);
+}
+
+:root[data-theme="dark"] .viewer-lightbox__backdrop {
+  background: radial-gradient(
+      circle at 20% 20%,
+      rgba(80, 110, 255, 0.35),
+      transparent 50%
+    ),
+    radial-gradient(circle at 80% 0%, rgba(118, 52, 255, 0.3), transparent 60%),
+    rgba(2, 5, 15, 0.85);
 }
 </style>
