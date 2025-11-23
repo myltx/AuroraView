@@ -64,6 +64,12 @@ When designing this template, I tried to keep it minimal, using the platform's n
 Each time you push changes to the `main` branch,
 the [`ci`](.github/workflows/ci.yml) workflow starts to create and deploy a new application version with then will be downloaded and applied by each app instance.
 
+### Professional image compatibility
+
+- 内置 `sharp` + Electron `nativeImage` 转换管线，可直接预览 PSD、DNG 以及常见厂商 RAW（Canon CR2/CR3、Nikon NEF、Sony ARW、Fujifilm RAF 等）；
+- `photon-file://` 自定义协议会把这些专业格式转换成高质量 JPEG/PNG 缓存，渲染层与普通图片无差异；
+- 目录扫描、对话框筛选、缩略图与灯箱均复用了同一扩展名列表，保证体验一致。
+
 ## Project Structure
 
 The project is designed as monorepo where each part of the application is an independent package.

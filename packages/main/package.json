@@ -15,7 +15,8 @@
     "@app/preload": "*",
     "@app/renderer": "*",
     "chokidar": "3.6.0",
-    "electron-updater": "6.6.2"
+    "electron-updater": "6.6.2",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@app/electron-versions": "*",

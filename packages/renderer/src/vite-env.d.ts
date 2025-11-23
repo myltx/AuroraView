@@ -73,6 +73,7 @@ interface FavoriteEntry {
   path: string;
   addedAt: number;
   rating?: number;
+  kind?: "favorite" | "rating";
 }
 
 interface FavoritesAPI {

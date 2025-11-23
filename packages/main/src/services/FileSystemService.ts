@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { readdir, stat } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { isSupportedImageExtension } from "../constants/imageExtensions.js";
 
 export type DirectoryReadOptions = {
   includeHidden?: boolean;
@@ -28,50 +29,6 @@ export type SystemDirectory = {
   name: string;
   path: string;
 };
-
-const IMAGE_EXTENSIONS = new Set([
-  // 标准格式
-  "png",
-  "jpg",
-  "jpeg",
-  "webp",
-  "bmp",
-  "gif",
-  "tiff",
-  "tif",
-  "heic",
-  "heif",
-  "svg",
-  // 专业格式
-  "psd", // Adobe Photoshop
-  "dng", // Adobe Digital Negative
-  // RAW 格式（各相机厂商）
-  "raw", // 通用 RAW
-  "cr2", // Canon RAW 2
-  "cr3", // Canon RAW 3
-  "nef", // Nikon Electronic Format
-  "nrw", // Nikon RAW
-  "arw", // Sony Alpha RAW
-  "sr2", // Sony RAW 2
-  "srf", // Sony RAW Format
-  "orf", // Olympus RAW Format
-  "raf", // Fujifilm RAW
-  "rw2", // Panasonic RAW 2
-  "rwl", // Leica RAW
-  "3fr", // Hasselblad RAW
-  "fff", // Hasselblad RAW
-  "mrw", // Minolta RAW
-  "x3f", // Sigma RAW
-  "erf", // Epson RAW
-  "kdc", // Kodak RAW
-  "dcr", // Kodak RAW
-  "dcs", // Kodak RAW
-  "drf", // Kodak RAW
-  "mef", // Mamiya RAW
-  "mos", // Leaf RAW
-  "iiq", // Phase One RAW
-  "rwz", // Rawzor
-]);
 
 export class FileSystemService {
   async readDirectory(
@@ -107,7 +64,7 @@ export class FileSystemService {
       if (!entry.isFile()) continue;
 
       const extension = extname(entry.name).slice(1).toLowerCase();
-      if (filter === "images" && !IMAGE_EXTENSIONS.has(extension)) continue;
+      if (filter === "images" && !isSupportedImageExtension(extension)) continue;
 
       items.push({
         path: fullPath,

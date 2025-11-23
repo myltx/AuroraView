@@ -132,6 +132,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="SIDEBAR_ICONS.star" />
                 </svg>
+                <span class="toolbar-rating-filter__value">{{ rating }}★</span>
                 <span class="toolbar-rating-filter__count">{{ getRatingCount(rating) }}</span>
               </button>
             </div>
@@ -364,7 +365,7 @@
                   <button
                     class="sidebar-item"
                     :class="{ 'is-active': isRatingCollectionView }"
-                    @click="showAllRatedImages">
+                    @click="showAllRatedImages()">
                     <span class="sidebar-item__icon">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path :d="SIDEBAR_ICONS.star" />
@@ -748,6 +749,7 @@ import { useImageViewer } from "../composables/useImageViewer";
 import { useSlideshow } from "../composables/useSlideshow";
 import { useThumbnailCache } from "../composables/useThumbnailCache";
 import { useSystemTheme } from "../composables/useSystemTheme";
+import { ALL_IMAGE_EXTENSIONS } from "@app/main/src/constants/imageExtensions";
 import type { ThemeMode, ThemePreference } from "../types/theme";
 import {
   computed,
@@ -850,6 +852,21 @@ const ACTION_ICONS = {
 };
 type RecentEntry = { path: string; name: string };
 type CustomEntry = { id: string; path: string; name: string };
+type FavoriteEntry = {
+  id: string;
+  name: string;
+  path: string;
+  addedAt: number;
+  rating?: number;
+  kind?: "favorite" | "rating";
+};
+type DirectorySnapshot = {
+  items: Array<{
+    path: string;
+    size: number;
+    modifiedAt: number;
+  }>;
+};
 
 type ViewMode = "regular" | "compact";
 const imageList = ref<GalleryItem[]>([]);
@@ -879,8 +896,12 @@ const RATING_COLLECTION_LABEL = "星级图片";
 const RECENT_STORAGE_KEY = "photon:recent-directories";
 const CUSTOM_STORAGE_KEY = "photon:sidebar:custom";
 const DRAG_MIME_TYPE = "application/x-photon-gallery";
-const selectedRatingFilters = ref<Set<number>>(new Set()); // 支持多选星级筛选
-const ratedImages = ref<Map<string, number>>(new Map()); // path -> rating
+const SUPPORTED_IMAGE_EXTENSIONS = new Set(
+  ALL_IMAGE_EXTENSIONS.map((ext: string) => ext.toLowerCase())
+);
+const selectedRatingFilters = ref<Set<number>>(new Set());
+const ratedImages = ref<Map<string, number>>(new Map());
+const allFavoriteEntries = ref<FavoriteEntry[]>([]);
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
 let toastSeed = 0;
@@ -898,6 +919,7 @@ const customRoots = ref<SidebarNode[]>([]);
 const isRatingCollectionView = computed(
   () => activeNodePath.value === RATING_COLLECTION_PATH
 );
+const totalRatedCount = computed(() => ratedImages.value.size);
 const groupState = reactive({
   favorites: true,
   system: true,
@@ -1050,9 +1072,6 @@ const currentDirectoryLabel = computed(() => {
   return currentNode.value?.path ?? "未选择目录";
 });
 
-const totalRatedCount = computed(() => {
-  return ratedImages.value.size;
-});
 const thumbnailSize = computed(() => VIEW_MODE_SIZES[viewMode.value]);
 const galleryStyle = computed(() => ({
   "--thumb-size": `${thumbnailSize.value}px`,
@@ -1078,6 +1097,12 @@ const thumbnailCache = useThumbnailCache();
 let cleanupAppAction: (() => void) | null = null;
 let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
 let unsubscribeThemeState: (() => void) | null = null;
+function stopWatchingCurrentDirectory() {
+  if (stopWatchingDirectory) {
+    stopWatchingDirectory();
+    stopWatchingDirectory = null;
+  }
+}
 
 const columns = computed(() =>
   Math.max(
@@ -1169,8 +1194,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("keydown", handleKeydown);
   cancelMomentum();
   clearToastTimers();
-  stopWatchingDirectory?.();
-  stopWatchingDirectory = null;
+  stopWatchingCurrentDirectory();
   if (bootstrapRetryTimer) {
     window.clearTimeout(bootstrapRetryTimer);
     bootstrapRetryTimer = null;
@@ -1322,47 +1346,36 @@ async function loadFavorites() {
     throw new Error("收藏 API 未就绪");
   }
   const favorites = await favoritesApi.list();
-  const fs = window.electron?.fs;
-  
-  // 只显示目录，不显示文件（文件可能是通过 setRating 自动创建的）
-  const favoriteDirectories: typeof favorites = [];
-  
-  if (fs) {
-    // 检查每个收藏项是否为目录
-    for (const fav of favorites) {
-      try {
-        const result = await fs.readDirectory(fav.path);
-        // 如果能成功读取目录，说明是目录
-        favoriteDirectories.push(fav);
-      } catch (error) {
-        // 读取失败说明可能是文件，跳过
-        // 但保留有 rating 的条目用于星级数据同步
-      }
-    }
-  } else {
-    // 如果 fs API 不可用，只显示没有 rating 的条目（这些应该是手动添加的目录）
-    favoriteDirectories.push(...favorites.filter(fav => !fav.rating));
-  }
-  
-  favoriteRoots.value = favoriteDirectories.map((fav) =>
-    createNode({
-      path: fav.path,
-      name: fav.name,
-      depth: 0,
-      type: "favorite",
-      favoriteId: fav.id,
-      register: false,
-      reuseExisting: false,
-    })
+  applyFavorites(favorites ?? []);
+}
+
+function applyFavorites(entries: FavoriteEntry[] = []) {
+  allFavoriteEntries.value = entries;
+  const favoriteDirectories = entries.filter(
+    (fav) => (fav.kind ?? "favorite") === "favorite"
   );
-  
-  // 同步星级数据（从所有收藏条目中提取，包括文件）
-  ratedImages.value.clear();
-  favorites.forEach((fav) => {
+
+  favoriteRoots.value = favoriteDirectories
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    .map((fav) =>
+      createNode({
+        path: fav.path,
+        name: fav.name,
+        depth: 0,
+        type: "favorite",
+        favoriteId: fav.id,
+        register: false,
+        reuseExisting: false,
+      })
+    );
+
+  const nextRatings = new Map<string, number>();
+  entries.forEach((fav) => {
     if (fav.rating && fav.rating >= 1 && fav.rating <= 5) {
-      ratedImages.value.set(fav.path, fav.rating);
+      nextRatings.set(fav.path, fav.rating);
     }
   });
+  ratedImages.value = nextRatings;
 }
 
 function loadRecentDirectories() {
@@ -1518,20 +1531,6 @@ async function loadImagesForDirectory(path: string) {
   const fs = window.electron?.fs;
   if (!fs) return;
 
-  // 支持的图片扩展名
-  const supportedExtensions = [
-    // 标准格式
-    "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif",
-    "heic", "heif", "svg",
-    // 专业格式
-    "psd", "dng",
-    // RAW 格式
-    "raw", "cr2", "cr3", "nef", "nrw", "arw", "sr2", "srf",
-    "orf", "raf", "rw2", "rwl", "3fr", "fff", "mrw", "x3f",
-    "erf", "kdc", "dcr", "dcs", "drf", "mef", "mos", "iiq", "rwz"
-  ];
-
-  // 读取目录（不使用 filter，让我们自己筛选）
   const result = await fs.readDirectory(path);
 
   imageList.value =
@@ -1539,7 +1538,8 @@ async function loadImagesForDirectory(path: string) {
       .filter(
         (item) =>
           item.type === "file" &&
-          supportedExtensions.includes(item.extension.toLowerCase())
+          item.extension &&
+          SUPPORTED_IMAGE_EXTENSIONS.has(item.extension.toLowerCase())
       )
       .map((item) => ({
         path: item.path,
@@ -1569,7 +1569,7 @@ async function activateDirectory(target: DirectoryTarget) {
   
   // 如果切换到非星级视图，清除星级筛选
   if (path !== RATING_COLLECTION_PATH) {
-    selectedRatingFilters.value.clear();
+    selectedRatingFilters.value = new Set();
   }
   
   activeNodePath.value = path;
@@ -1596,7 +1596,7 @@ function ensureVirtualNode(path: string, name: string) {
 
 function subscribeDirectoryWatcher(path: string) {
   if (!window.electron?.fs?.watchDirectory) return;
-  stopWatchingDirectory?.();
+  stopWatchingCurrentDirectory();
   stopWatchingDirectory = window.electron.fs.watchDirectory(path, () => {
     refreshCurrentDirectory();
   });
@@ -1752,43 +1752,66 @@ const closeLightbox = () => {
 };
 
 
+type RatingGalleryOptions = {
+  resetFilters?: boolean;
+  initialRatings?: number[];
+};
+
 // 星级相关函数
-async function showAllRatedImages() {
-  selectedRatingFilters.value.clear();
-  searchQuery.value = "";
-  
-  const favoritesApi = window.electron?.favorites;
-  if (!favoritesApi) return;
-  
-  // 获取所有有星级的图片
-  const allRatedEntries: Array<{ path: string; name: string; rating: number }> = [];
-  for (let rating = 5; rating >= 1; rating--) {
-    const entries = await favoritesApi.listByRating(rating);
-    allRatedEntries.push(...entries.map(e => ({ ...e, rating })));
+async function showAllRatedImages(options: RatingGalleryOptions = {}) {
+  const { resetFilters = true, initialRatings } = options;
+  if (!allFavoriteEntries.value.length) {
+    await loadFavorites();
   }
-  
+
+  stopWatchingCurrentDirectory();
+  activeNodePath.value = RATING_COLLECTION_PATH;
+
+  if (resetFilters) {
+    selectedRatingFilters.value = initialRatings
+      ? new Set(initialRatings)
+      : new Set();
+    searchQuery.value = "";
+  } else if (initialRatings?.length) {
+    const next = new Set(selectedRatingFilters.value);
+    initialRatings.forEach((rating) => next.add(rating));
+    selectedRatingFilters.value = next;
+  }
+
+  const ratedEntries = allFavoriteEntries.value.filter(
+    (entry) => entry.rating && entry.rating >= 1 && entry.rating <= 5
+  );
+
   const fs = window.electron?.fs;
-  
-  // 尝试从文件系统获取元数据，并按星级从高到低排序
+  const directoryCache = new Map<string, DirectorySnapshot | null>();
+
   const items: GalleryItem[] = await Promise.all(
-    allRatedEntries.map(async (entry) => {
+    ratedEntries.map(async (entry) => {
       let modifiedAt = 0;
       let size = 0;
-      
+
       if (fs) {
-        try {
-          const dir = getDirectoryFromPath(entry.path);
-          const result = await fs.readDirectory(dir);
-          const fileItem = result.items.find((item) => item.path === entry.path);
-          if (fileItem) {
-            modifiedAt = fileItem.modifiedAt;
-            size = fileItem.size;
+        const dir = getDirectoryFromPath(entry.path);
+        let snapshot = directoryCache.get(dir);
+        if (snapshot === undefined) {
+          try {
+            snapshot = (await fs.readDirectory(dir, {
+              filter: "all",
+            })) as DirectorySnapshot;
+          } catch {
+            snapshot = null;
           }
-        } catch (error) {
-          console.warn("无法获取文件元数据:", entry.path, error);
+          directoryCache.set(dir, snapshot);
+        }
+        const fileItem = snapshot?.items.find(
+          (item) => item.path === entry.path
+        );
+        if (fileItem) {
+          modifiedAt = fileItem.modifiedAt;
+          size = fileItem.size;
         }
       }
-      
+
       return {
         path: entry.path,
         resource: toImageResource(entry.path),
@@ -1799,37 +1822,35 @@ async function showAllRatedImages() {
       };
     })
   );
-  
-  // 按星级从高到低排序（使用 ratedImages Map）
+
   items.sort((a, b) => {
     const ratingA = ratedImages.value.get(a.path) || 0;
     const ratingB = ratedImages.value.get(b.path) || 0;
     if (ratingB !== ratingA) {
-      return ratingB - ratingA; // 星级高的在前
+      return ratingB - ratingA;
     }
-    // 同星级按名称排序
     return a.name.localeCompare(b.name, undefined, { numeric: true });
   });
-  
+
   imageList.value = items;
-  activeNodePath.value = RATING_COLLECTION_PATH;
   currentIndex.value = 0;
   lightboxVisible.value = false;
   resetLightboxView();
 }
 
 function toggleRatingFilter(rating: number) {
-  if (selectedRatingFilters.value.has(rating)) {
-    selectedRatingFilters.value.delete(rating);
+  const next = new Set(selectedRatingFilters.value);
+  if (next.has(rating)) {
+    next.delete(rating);
   } else {
-    selectedRatingFilters.value.add(rating);
+    next.add(rating);
   }
-  // 筛选通过 galleryItems 计算属性自动生效，不需要重新加载数据
+  selectedRatingFilters.value = next;
 }
 
 function clearRatingFilters() {
-  selectedRatingFilters.value.clear();
-  // 筛选通过 galleryItems 计算属性自动生效，不需要重新加载数据
+  if (selectedRatingFilters.value.size === 0) return;
+  selectedRatingFilters.value = new Set();
 }
 
 function isRatingFiltered(rating: number): boolean {
@@ -1838,15 +1859,13 @@ function isRatingFiltered(rating: number): boolean {
 
 function getRatingCount(rating: number): number {
   let count = 0;
-  ratedImages.value.forEach((r) => {
-    if (r === rating) count++;
+  ratedImages.value.forEach((value) => {
+    if (value === rating) count += 1;
   });
   return count;
 }
 
-const hasAnyRatedImages = computed(() => {
-  return ratedImages.value.size > 0;
-});
+const hasAnyRatedImages = computed(() => totalRatedCount.value > 0);
 
 function extractExtension(path: string): string {
   const match = path.match(/\.([^.]+)$/);
@@ -1854,20 +1873,20 @@ function extractExtension(path: string): string {
 }
 
 async function setImageRating(path: string, rating: number) {
-  if (!window.electron?.favorites) return;
+  const favoritesApi = window.electron?.favorites;
+  if (!favoritesApi) return;
   try {
-    await window.electron.favorites.setRating(path, rating);
-    if (rating === 0) {
-      ratedImages.value.delete(path);
+    const updated = await favoritesApi.setRating(path, rating);
+    if (updated) {
+      applyFavorites(updated);
     } else {
-      ratedImages.value.set(path, rating);
+      await loadFavorites();
     }
-    await loadFavorites();
     showToast(rating === 0 ? "已取消评级" : `已设置为 ${rating} 星`, "success");
     
     // 如果当前在星级视图，刷新显示
     if (isRatingCollectionView.value) {
-      await showAllRatedImages();
+      await showAllRatedImages({ resetFilters: false });
     }
   } catch (error) {
     console.error("设置评级失败", error);
@@ -1877,15 +1896,25 @@ async function setImageRating(path: string, rating: number) {
 
 async function addCurrentToFavorites() {
   const node = currentNode.value;
-  if (!node || !window.electron?.favorites) return;
-  await window.electron.favorites.add(node.path, node.name);
-  await loadFavorites();
+  const favoritesApi = window.electron?.favorites;
+  if (!node || !favoritesApi) return;
+  const updated = await favoritesApi.add(node.path, node.name);
+  if (updated) {
+    applyFavorites(updated);
+  } else {
+    await loadFavorites();
+  }
 }
 
 async function removeFavorite(id: string) {
-  if (!window.electron?.favorites) return;
-  await window.electron.favorites.remove(id);
-  await loadFavorites();
+  const favoritesApi = window.electron?.favorites;
+  if (!favoritesApi) return;
+  const updated = await favoritesApi.remove(id);
+  if (updated) {
+    applyFavorites(updated);
+  } else {
+    await loadFavorites();
+  }
 }
 
 function getImageRating(path: string): number | undefined {
@@ -2445,9 +2474,12 @@ function revealSelected() {
 }
 
 async function refreshCurrentDirectory() {
-  if (activeNodePath.value) {
-    await loadImagesForDirectory(activeNodePath.value);
+  if (!activeNodePath.value) return;
+  if (isRatingCollectionView.value) {
+    await showAllRatedImages({ resetFilters: false });
+    return;
   }
+  await loadImagesForDirectory(activeNodePath.value);
 }
 
 function scheduleBootstrapRetry() {

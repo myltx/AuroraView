@@ -10,6 +10,7 @@ export type FavoriteEntry = {
   path: string;
   addedAt: number;
   rating?: number; // 1-5 星评级，0 或 undefined 表示未评级
+  kind?: "favorite" | "rating";
 };
 
 const FAVORITES_FILE = "favorites.json";
@@ -38,7 +39,11 @@ export class FavoritesStore {
       }
 
       const content = await readFile(this.#filePath, "utf-8");
-      this.#favorites = JSON.parse(content) as FavoriteEntry[];
+      const parsed = JSON.parse(content) as FavoriteEntry[];
+      this.#favorites = parsed.map((entry) => ({
+        ...entry,
+        kind: entry.kind ?? "favorite",
+      }));
     } catch (error) {
       console.error("加载收藏失败", error);
       this.#favorites = [];
@@ -60,6 +65,7 @@ export class FavoritesStore {
       path,
       name: name || basename(path),
       addedAt: Date.now(),
+      kind: "favorite",
     };
     this.#favorites.push(entry);
     await this.#persist();
@@ -82,9 +88,16 @@ export class FavoritesStore {
 
     const existing = this.#favorites.find((fav) => fav.path === path);
     if (existing) {
+      if (!existing.kind) {
+        existing.kind = "favorite";
+      }
       // 如果已存在，更新评级
       if (rating === 0) {
-        delete existing.rating;
+        if (existing.kind === "rating") {
+          this.#favorites = this.#favorites.filter((fav) => fav !== existing);
+        } else {
+          delete existing.rating;
+        }
       } else {
         existing.rating = rating;
       }
@@ -96,6 +109,7 @@ export class FavoritesStore {
         name: basename(path),
         addedAt: Date.now(),
         rating: rating === 0 ? undefined : rating,
+        kind: "rating",
       };
       this.#favorites.push(entry);
     }

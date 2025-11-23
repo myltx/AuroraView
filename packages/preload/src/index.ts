@@ -90,6 +90,7 @@ type FavoriteEntry = {
   path: string;
   addedAt: number;
   rating?: number;
+  kind?: "favorite" | "rating";
 };
 
 const favoritesAPI = {
