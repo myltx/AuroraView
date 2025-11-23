@@ -1733,12 +1733,14 @@ function zoomTo(targetScale: number, origin?: { x: number; y: number }) {
 const prevImage = () => {
   const length = galleryItems.value.length;
   if (!length) return;
+  resetLightboxView();
   lightboxDirection.value = "backward";
   currentIndex.value = (currentIndex.value - 1 + length) % length;
 };
 const nextImage = () => {
   const length = galleryItems.value.length;
   if (!length) return;
+  resetLightboxView();
   lightboxDirection.value = "forward";
   currentIndex.value = (currentIndex.value + 1) % length;
 };
