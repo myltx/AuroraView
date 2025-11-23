@@ -5,7 +5,7 @@
       <div class="toolbar-content">
         <div class="toolbar-left">
           <div class="toolbar-title">
-            <span class="toolbar-title__primary">Photon</span>
+            <span class="toolbar-title__primary">助眠神奇</span>
             <span class="toolbar-title__path" :title="currentDirectoryLabel">
               {{ currentDirectoryLabel }}
             </span>
