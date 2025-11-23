@@ -9,6 +9,7 @@ export type FavoriteEntry = {
   name: string;
   path: string;
   addedAt: number;
+  rating?: number; // 1-5 星评级，0 或 undefined 表示未评级
 };
 
 const FAVORITES_FILE = "favorites.json";
@@ -70,6 +71,48 @@ export class FavoritesStore {
     this.#favorites = this.#favorites.filter((fav) => fav.id !== id);
     await this.#persist();
     return this.#favorites;
+  }
+
+  async setRating(path: string, rating: number) {
+    await this.init();
+    // rating: 0 表示取消评级，1-5 表示对应星级
+    if (rating < 0 || rating > 5) {
+      throw new Error("评级必须在 0-5 之间");
+    }
+
+    const existing = this.#favorites.find((fav) => fav.path === path);
+    if (existing) {
+      // 如果已存在，更新评级
+      if (rating === 0) {
+        delete existing.rating;
+      } else {
+        existing.rating = rating;
+      }
+    } else {
+      // 如果不存在，创建新条目
+      const entry: FavoriteEntry = {
+        id: randomUUID(),
+        path,
+        name: basename(path),
+        addedAt: Date.now(),
+        rating: rating === 0 ? undefined : rating,
+      };
+      this.#favorites.push(entry);
+    }
+    await this.#persist();
+    return this.#favorites;
+  }
+
+  getRating(path: string): number | undefined {
+    const entry = this.#favorites.find((fav) => fav.path === path);
+    return entry?.rating;
+  }
+
+  listByRating(rating: number): FavoriteEntry[] {
+    if (rating < 1 || rating > 5) {
+      return [];
+    }
+    return this.#favorites.filter((fav) => fav.rating === rating);
   }
 
   async #persist() {

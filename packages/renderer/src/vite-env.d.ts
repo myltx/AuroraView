@@ -72,12 +72,16 @@ interface FavoriteEntry {
   name: string;
   path: string;
   addedAt: number;
+  rating?: number;
 }
 
 interface FavoritesAPI {
   list: () => Promise<FavoriteEntry[]>;
   add: (path: string, name?: string) => Promise<FavoriteEntry[]>;
   remove: (id: string) => Promise<FavoriteEntry[]>;
+  setRating: (path: string, rating: number) => Promise<FavoriteEntry[]>;
+  getRating: (path: string) => Promise<number | undefined>;
+  listByRating: (rating: number) => Promise<FavoriteEntry[]>;
 }
 
 interface FileOperationsAPI {

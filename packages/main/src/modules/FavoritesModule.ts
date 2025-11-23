@@ -21,6 +21,21 @@ export function createFavoritesModule(): AppModule {
         const { id } = payload as { id: string };
         return store.remove(id);
       });
+
+      ipcMain.handle(IPC_CHANNELS.FAVORITES_SET_RATING, async (_event, payload) => {
+        const { path, rating } = payload as { path: string; rating: number };
+        return store.setRating(path, rating);
+      });
+
+      ipcMain.handle(IPC_CHANNELS.FAVORITES_GET_RATING, async (_event, payload) => {
+        const { path } = payload as { path: string };
+        return store.getRating(path);
+      });
+
+      ipcMain.handle(IPC_CHANNELS.FAVORITES_LIST_BY_RATING, async (_event, payload) => {
+        const { rating } = payload as { rating: number };
+        return store.listByRating(rating);
+      });
     },
   };
 }

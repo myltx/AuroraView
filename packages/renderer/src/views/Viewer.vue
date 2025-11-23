@@ -117,6 +117,33 @@
             </div>
           </div>
 
+          <div
+            v-if="isRatingCollectionView"
+            class="toolbar-rating-filter">
+            <span class="toolbar-rating-filter__label">星级筛选：</span>
+            <div class="toolbar-rating-filter__stars">
+              <button
+                v-for="rating in [5, 4, 3, 2, 1]"
+                :key="rating"
+                class="toolbar-rating-filter__star"
+                :class="{ 'is-active': isRatingFiltered(rating) }"
+                :title="`${rating} 星 (${getRatingCount(rating)} 张)`"
+                @click="toggleRatingFilter(rating)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.star" />
+                </svg>
+                <span class="toolbar-rating-filter__count">{{ getRatingCount(rating) }}</span>
+              </button>
+            </div>
+            <button
+              v-if="selectedRatingFilters.size > 0"
+              class="toolbar-rating-filter__clear"
+              title="清除筛选"
+              @click="clearRatingFilters">
+              清除
+            </button>
+          </div>
+
           <div class="toolbar-search">
             <svg
               class="toolbar-search__icon"
@@ -252,35 +279,6 @@
         <nav class="sidebar-groups sidebar-groups--flush">
           <section class="sidebar-group">
             <header class="sidebar-group__header">
-              <span class="sidebar-group__label">收藏图片</span>
-            </header>
-            <ul class="sidebar-list" role="list">
-              <li class="sidebar-list__item">
-                <div class="sidebar-item-row">
-                  <button
-                    class="sidebar-item"
-                    :class="{ 'is-active': isFavoritesView }"
-                    @click="showFavoriteGallery">
-                    <span class="sidebar-item__icon">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path :d="SIDEBAR_ICONS.star" />
-                      </svg>
-                    </span>
-                    <span class="sidebar-item__name">收藏图片</span>
-                    <span class="sidebar-item__meta"
-                      >{{ favoriteImages.length }} 张</span
-                    >
-                  </button>
-                </div>
-              </li>
-            </ul>
-            <p v-if="!favoriteImages.length" class="sidebar-empty">
-              尚未收藏图片，可在缩略图上点击星标添加
-            </p>
-          </section>
-
-          <section class="sidebar-group">
-            <header class="sidebar-group__header">
               <button
                 type="button"
                 class="sidebar-group__label"
@@ -353,6 +351,33 @@
             </ul>
             <p v-if="!flattenedFavorites.length" class="sidebar-empty">
               还没有收藏，点击上方按钮添加
+            </p>
+          </section>
+
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <span class="sidebar-group__label">星级图片</span>
+            </header>
+            <ul class="sidebar-list" role="list">
+              <li class="sidebar-list__item">
+                <div class="sidebar-item-row">
+                  <button
+                    class="sidebar-item"
+                    :class="{ 'is-active': isRatingCollectionView }"
+                    @click="showAllRatedImages">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.star" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">所有星级</span>
+                    <span class="sidebar-item__meta">{{ totalRatedCount }} 张</span>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!hasAnyRatedImages" class="sidebar-empty">
+              尚未评级图片，可在缩略图上点击星标添加评级
             </p>
           </section>
 
@@ -513,20 +538,28 @@
                     :alt="item.name"
                     loading="lazy" />
                 </div>
-                <span
-                  class="viewer-gallery__fav"
-                  role="button"
-                  tabindex="0"
-                  :aria-pressed="isImageFavorited(item.path)"
-                  :class="{ 'is-active': isImageFavorited(item.path) }"
-                  title="收藏图片"
-                  @click.stop="toggleImageFavorite(item)"
-                  @keydown.enter.prevent.stop="toggleImageFavorite(item)"
-                  @keydown.space.prevent.stop="toggleImageFavorite(item)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path :d="SIDEBAR_ICONS.star" />
-                  </svg>
-                </span>
+                <div class="viewer-gallery__actions">
+                  <span
+                    class="viewer-gallery__rating"
+                    role="button"
+                    tabindex="0"
+                    :title="`当前评级: ${getImageRating(item.path) || '未评级'}`"
+                    @click.stop="handleRatingClick($event, item)"
+                    @keydown.enter.prevent.stop="handleRatingClick($event, item)"
+                    @keydown.space.prevent.stop="handleRatingClick($event, item)">
+                    <span
+                      v-for="star in [1, 2, 3, 4, 5]"
+                      :key="star"
+                      class="viewer-gallery__rating-star"
+                      :class="{
+                        'is-filled': getImageRating(item.path) && getImageRating(item.path)! >= star
+                      }">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.star" />
+                      </svg>
+                    </span>
+                  </span>
+                </div>
                 <p class="viewer-gallery__caption" :title="item.name">
                   {{ item.name }}
                 </p>
@@ -593,15 +626,6 @@
               </button>
               <button
                 class="viewer-lightbox__toolbar-btn"
-                :class="{ 'is-active': isCurrentFavorite }"
-                title="收藏图片"
-                @click="toggleCurrentImageFavorite">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="SIDEBAR_ICONS.star" />
-                </svg>
-              </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
                 title="水平翻转"
                 @click="runViewerAction(toggleFlipX)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -633,6 +657,21 @@
                   <path :d="TOOLBAR_ICONS.fullscreen" />
                 </svg>
               </button>
+            </div>
+            <div class="viewer-lightbox__rating">
+              <span
+                v-for="star in [1, 2, 3, 4, 5]"
+                :key="star"
+                class="viewer-lightbox__rating-star"
+                :class="{
+                  'is-filled': currentGalleryItem && getImageRating(currentGalleryItem.path) && getImageRating(currentGalleryItem.path)! >= star
+                }"
+                :title="`设置为 ${star} 星`"
+                @click="handleLightboxRatingClick(star)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.star" />
+                </svg>
+              </span>
             </div>
             <button
               class="viewer-lightbox__toolbar-btn viewer-lightbox__toolbar-btn--close"
@@ -757,14 +796,6 @@ type ToastMessage = {
   message: string;
   variant: ToastVariant;
 };
-type FavoriteImage = {
-  path: string;
-  name: string;
-  directory: string;
-  extension?: string;
-  modifiedAt?: number;
-  size?: number;
-};
 const SIDEBAR_ICONS: Record<string, string> = {
   folder:
     "M3.5 6.75h5.1l1.6 2.4h10.3c1.1 0 2 .9 2 2v8.1c0 1.1-.9 2-2 2H3.5c-1.1 0-2-.9-2-2V8.75c0-1.1.9-2 2-2z",
@@ -843,12 +874,13 @@ const dragPayload = reactive({
   sourcePath: "",
 });
 const dragOverPath = ref<string | null>(null);
-const FAVORITES_COLLECTION_PATH = "__favorites__";
-const FAVORITES_COLLECTION_LABEL = "收藏图片";
+const RATING_COLLECTION_PATH = "__ratings__";
+const RATING_COLLECTION_LABEL = "星级图片";
 const RECENT_STORAGE_KEY = "photon:recent-directories";
 const CUSTOM_STORAGE_KEY = "photon:sidebar:custom";
 const DRAG_MIME_TYPE = "application/x-photon-gallery";
-const FAVORITE_IMAGES_KEY = "photon:favorites:images";
+const selectedRatingFilters = ref<Set<number>>(new Set()); // 支持多选星级筛选
+const ratedImages = ref<Map<string, number>>(new Map()); // path -> rating
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
 let toastSeed = 0;
@@ -856,7 +888,6 @@ const MAX_BOOTSTRAP_RETRY = 3;
 const BOOTSTRAP_RETRY_DELAY = 600;
 let bootstrapRetryCount = 0;
 let bootstrapRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
-const favoriteImages = ref<FavoriteImage[]>([]);
 const actionsMenuOpen = ref(false);
 const actionsMenuRef = ref<HTMLElement | null>(null);
 const sortMenuOpen = ref(false);
@@ -864,8 +895,8 @@ const sortMenuRef = ref<HTMLElement | null>(null);
 const recentDirectories = ref<RecentEntry[]>([]);
 const customEntries = ref<CustomEntry[]>([]);
 const customRoots = ref<SidebarNode[]>([]);
-const isFavoritesView = computed(
-  () => activeNodePath.value === FAVORITES_COLLECTION_PATH
+const isRatingCollectionView = computed(
+  () => activeNodePath.value === RATING_COLLECTION_PATH
 );
 const groupState = reactive({
   favorites: true,
@@ -912,6 +943,21 @@ const { playing, start, stop } = useSlideshow();
 
 const sortedItems = computed(() => {
   const items = [...imageList.value];
+  
+  // 如果在星级视图中，按星级从高到低排序
+  if (isRatingCollectionView.value) {
+    return items.sort((a, b) => {
+      const ratingA = ratedImages.value.get(a.path) || 0;
+      const ratingB = ratedImages.value.get(b.path) || 0;
+      if (ratingB !== ratingA) {
+        return ratingB - ratingA; // 星级高的在前
+      }
+      // 同星级按名称排序
+      return a.name.localeCompare(b.name, undefined, { numeric: true });
+    });
+  }
+  
+  // 普通目录视图的排序
   switch (sortMode.value) {
     case "name-desc":
       return items.sort((a, b) =>
@@ -930,17 +976,29 @@ const sortedItems = computed(() => {
 });
 
 const galleryItems = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) {
-    return sortedItems.value;
+  let items = sortedItems.value;
+  
+  // 星级筛选（支持多选）- 只在星级视图时生效
+  if (isRatingCollectionView.value && selectedRatingFilters.value.size > 0) {
+    items = items.filter((item) => {
+      const rating = ratedImages.value.get(item.path);
+      return rating !== undefined && selectedRatingFilters.value.has(rating);
+    });
   }
-  const nodeName = currentNode.value?.name?.toLowerCase() ?? "";
-  return sortedItems.value.filter(
-    (item) =>
-      item.name.toLowerCase().includes(query) ||
-      nodeName.includes(query) ||
-      getDirectoryFromPath(item.path).toLowerCase().includes(query)
-  );
+  
+  // 搜索筛选
+  const query = searchQuery.value.trim().toLowerCase();
+  if (query) {
+    const nodeName = currentNode.value?.name?.toLowerCase() ?? "";
+    items = items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) ||
+        nodeName.includes(query) ||
+        getDirectoryFromPath(item.path).toLowerCase().includes(query)
+    );
+  }
+  
+  return items;
 });
 
 const hasImages = computed(() => galleryItems.value.length > 0);
@@ -951,11 +1009,6 @@ const currentImage = computed(
 const currentMetadata = computed(() => galleryItems.value[currentIndex.value]);
 const currentGalleryItem = computed(
   () => galleryItems.value[currentIndex.value]
-);
-const isCurrentFavorite = computed(() =>
-  currentGalleryItem.value
-    ? isImageFavorited(currentGalleryItem.value.path)
-    : false
 );
 const selectedCount = computed(() => selectedIndexes.value.size);
 const hasSelection = computed(() => selectedIndexes.value.size > 0);
@@ -991,10 +1044,14 @@ const flattenedFavorites = computed(() => flattenNodes(favoriteRoots.value));
 const flattenedSystem = computed(() => flattenNodes(systemRoots.value));
 const flattenedCustom = computed(() => flattenNodes(customRoots.value));
 const currentDirectoryLabel = computed(() => {
-  if (isFavoritesView.value) {
-    return FAVORITES_COLLECTION_LABEL;
+  if (isRatingCollectionView.value) {
+    return RATING_COLLECTION_LABEL;
   }
   return currentNode.value?.path ?? "未选择目录";
+});
+
+const totalRatedCount = computed(() => {
+  return ratedImages.value.size;
 });
 const thumbnailSize = computed(() => VIEW_MODE_SIZES[viewMode.value]);
 const galleryStyle = computed(() => ({
@@ -1057,7 +1114,6 @@ const bottomSpacer = computed(() =>
 onMounted(async () => {
   loadCustomDirectories();
   loadRecentDirectories();
-  loadFavoriteImages();
   await bootstrapSidebar();
   setupGalleryObservers();
   window.addEventListener("keydown", handleKeydown);
@@ -1266,7 +1322,29 @@ async function loadFavorites() {
     throw new Error("收藏 API 未就绪");
   }
   const favorites = await favoritesApi.list();
-  favoriteRoots.value = favorites.map((fav) =>
+  const fs = window.electron?.fs;
+  
+  // 只显示目录，不显示文件（文件可能是通过 setRating 自动创建的）
+  const favoriteDirectories: typeof favorites = [];
+  
+  if (fs) {
+    // 检查每个收藏项是否为目录
+    for (const fav of favorites) {
+      try {
+        const result = await fs.readDirectory(fav.path);
+        // 如果能成功读取目录，说明是目录
+        favoriteDirectories.push(fav);
+      } catch (error) {
+        // 读取失败说明可能是文件，跳过
+        // 但保留有 rating 的条目用于星级数据同步
+      }
+    }
+  } else {
+    // 如果 fs API 不可用，只显示没有 rating 的条目（这些应该是手动添加的目录）
+    favoriteDirectories.push(...favorites.filter(fav => !fav.rating));
+  }
+  
+  favoriteRoots.value = favoriteDirectories.map((fav) =>
     createNode({
       path: fav.path,
       name: fav.name,
@@ -1277,6 +1355,14 @@ async function loadFavorites() {
       reuseExisting: false,
     })
   );
+  
+  // 同步星级数据（从所有收藏条目中提取，包括文件）
+  ratedImages.value.clear();
+  favorites.forEach((fav) => {
+    if (fav.rating && fav.rating >= 1 && fav.rating <= 5) {
+      ratedImages.value.set(fav.path, fav.rating);
+    }
+  });
 }
 
 function loadRecentDirectories() {
@@ -1351,123 +1437,11 @@ function setViewMode(mode: ViewMode) {
   viewMode.value = mode;
 }
 
-function loadFavoriteImages() {
-  if (typeof localStorage === "undefined") return;
-  try {
-    const stored = localStorage.getItem(FAVORITE_IMAGES_KEY);
-    if (!stored) {
-      favoriteImages.value = [];
-      return;
-    }
-    const parsed = JSON.parse(stored) as Array<Partial<FavoriteImage>>;
-    favoriteImages.value = Array.isArray(parsed)
-      ? parsed
-          .filter(
-            (item): item is Partial<FavoriteImage> & { path: string } =>
-              !!item?.path
-          )
-          .map((item) => ({
-            path: item.path,
-            name: item.name ?? extractName(item.path),
-            directory: item.directory ?? getDirectoryFromPath(item.path),
-            extension: item.extension,
-            modifiedAt: item.modifiedAt,
-            size: item.size,
-          }))
-      : [];
-  } catch {
-    favoriteImages.value = [];
-  }
-}
-
-function saveFavoriteImages() {
-  if (typeof localStorage === "undefined") return;
-  localStorage.setItem(
-    FAVORITE_IMAGES_KEY,
-    JSON.stringify(favoriteImages.value)
-  );
-}
-
-function isImageFavorited(path: string) {
-  return favoriteImages.value.some((fav) => fav.path === path);
-}
-
 function getDirectoryFromPath(path: string) {
   const normalized = path.replace(/\\/g, "/");
   const index = normalized.lastIndexOf("/");
   if (index <= 0) return normalized;
   return normalized.slice(0, index);
-}
-
-function addFavoriteImage(item: GalleryItem) {
-  const directory = getDirectoryFromPath(item.path);
-  const payload: FavoriteImage = {
-    path: item.path,
-    name: item.name,
-    directory,
-    extension: item.extension,
-    modifiedAt: item.modifiedAt,
-    size: item.size,
-  };
-  favoriteImages.value = [
-    payload,
-    ...favoriteImages.value.filter((fav) => fav.path !== item.path),
-  ];
-  saveFavoriteImages();
-  showToast(`已收藏 ${item.name}`, "success");
-}
-
-function removeFavoriteImage(path: string) {
-  favoriteImages.value = favoriteImages.value.filter(
-    (fav) => fav.path !== path
-  );
-  saveFavoriteImages();
-  showToast("已移除收藏图片", "info");
-}
-
-function toggleImageFavorite(item: GalleryItem) {
-  if (isImageFavorited(item.path)) {
-    removeFavoriteImage(item.path);
-    showToast(`已取消收藏 ${item.name}`, "info");
-  } else {
-    addFavoriteImage(item);
-  }
-}
-
-function toggleCurrentImageFavorite() {
-  const current = currentGalleryItem.value;
-  if (!current) return;
-  toggleImageFavorite(current);
-}
-
-function buildFavoriteGalleryItems(): GalleryItem[] {
-  return favoriteImages.value.map((fav) => ({
-    path: fav.path,
-    resource: toImageResource(fav.path),
-    name: fav.name,
-    extension: fav.extension,
-    modifiedAt: fav.modifiedAt ?? 0,
-    size: fav.size ?? 0,
-  }));
-}
-
-async function openFavoriteImage(favorite: FavoriteImage) {
-  if (searchQuery.value) {
-    searchQuery.value = "";
-  }
-  await activateDirectory({
-    path: favorite.directory,
-    name: extractName(favorite.directory),
-  });
-  await nextTick();
-  const index = galleryItems.value.findIndex(
-    (item) => item.path === favorite.path
-  );
-  if (index >= 0) {
-    openLightbox(index);
-  } else {
-    showToast("该图片不在当前目录中", "info");
-  }
 }
 
 async function addCustomDirectory() {
@@ -1546,8 +1520,15 @@ async function loadImagesForDirectory(path: string) {
 
   // 支持的图片扩展名
   const supportedExtensions = [
-    "jpg", "jpeg", "png", "gif", "bmp", "webp",
-    "psd", "raw", "dng", "tiff", "heic"
+    // 标准格式
+    "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif",
+    "heic", "heif", "svg",
+    // 专业格式
+    "psd", "dng",
+    // RAW 格式
+    "raw", "cr2", "cr3", "nef", "nrw", "arw", "sr2", "srf",
+    "orf", "raf", "rw2", "rwl", "3fr", "fff", "mrw", "x3f",
+    "erf", "kdc", "dcr", "dcs", "drf", "mef", "mos", "iiq", "rwz"
   ];
 
   // 读取目录（不使用 filter，让我们自己筛选）
@@ -1585,6 +1566,12 @@ async function activateDirectory(target: DirectoryTarget) {
   const path = target.path;
   const label = target.name;
   if (!path) return;
+  
+  // 如果切换到非星级视图，清除星级筛选
+  if (path !== RATING_COLLECTION_PATH) {
+    selectedRatingFilters.value.clear();
+  }
+  
   activeNodePath.value = path;
   await loadImagesForDirectory(path);
   subscribeDirectoryWatcher(path);
@@ -1764,6 +1751,130 @@ const closeLightbox = () => {
   lightboxDirection.value = "none";
 };
 
+
+// 星级相关函数
+async function showAllRatedImages() {
+  selectedRatingFilters.value.clear();
+  searchQuery.value = "";
+  
+  const favoritesApi = window.electron?.favorites;
+  if (!favoritesApi) return;
+  
+  // 获取所有有星级的图片
+  const allRatedEntries: Array<{ path: string; name: string; rating: number }> = [];
+  for (let rating = 5; rating >= 1; rating--) {
+    const entries = await favoritesApi.listByRating(rating);
+    allRatedEntries.push(...entries.map(e => ({ ...e, rating })));
+  }
+  
+  const fs = window.electron?.fs;
+  
+  // 尝试从文件系统获取元数据，并按星级从高到低排序
+  const items: GalleryItem[] = await Promise.all(
+    allRatedEntries.map(async (entry) => {
+      let modifiedAt = 0;
+      let size = 0;
+      
+      if (fs) {
+        try {
+          const dir = getDirectoryFromPath(entry.path);
+          const result = await fs.readDirectory(dir);
+          const fileItem = result.items.find((item) => item.path === entry.path);
+          if (fileItem) {
+            modifiedAt = fileItem.modifiedAt;
+            size = fileItem.size;
+          }
+        } catch (error) {
+          console.warn("无法获取文件元数据:", entry.path, error);
+        }
+      }
+      
+      return {
+        path: entry.path,
+        resource: toImageResource(entry.path),
+        name: entry.name,
+        extension: extractExtension(entry.path),
+        modifiedAt,
+        size,
+      };
+    })
+  );
+  
+  // 按星级从高到低排序（使用 ratedImages Map）
+  items.sort((a, b) => {
+    const ratingA = ratedImages.value.get(a.path) || 0;
+    const ratingB = ratedImages.value.get(b.path) || 0;
+    if (ratingB !== ratingA) {
+      return ratingB - ratingA; // 星级高的在前
+    }
+    // 同星级按名称排序
+    return a.name.localeCompare(b.name, undefined, { numeric: true });
+  });
+  
+  imageList.value = items;
+  activeNodePath.value = RATING_COLLECTION_PATH;
+  currentIndex.value = 0;
+  lightboxVisible.value = false;
+  resetLightboxView();
+}
+
+function toggleRatingFilter(rating: number) {
+  if (selectedRatingFilters.value.has(rating)) {
+    selectedRatingFilters.value.delete(rating);
+  } else {
+    selectedRatingFilters.value.add(rating);
+  }
+  // 筛选通过 galleryItems 计算属性自动生效，不需要重新加载数据
+}
+
+function clearRatingFilters() {
+  selectedRatingFilters.value.clear();
+  // 筛选通过 galleryItems 计算属性自动生效，不需要重新加载数据
+}
+
+function isRatingFiltered(rating: number): boolean {
+  return selectedRatingFilters.value.has(rating);
+}
+
+function getRatingCount(rating: number): number {
+  let count = 0;
+  ratedImages.value.forEach((r) => {
+    if (r === rating) count++;
+  });
+  return count;
+}
+
+const hasAnyRatedImages = computed(() => {
+  return ratedImages.value.size > 0;
+});
+
+function extractExtension(path: string): string {
+  const match = path.match(/\.([^.]+)$/);
+  return match ? match[1].toLowerCase() : "";
+}
+
+async function setImageRating(path: string, rating: number) {
+  if (!window.electron?.favorites) return;
+  try {
+    await window.electron.favorites.setRating(path, rating);
+    if (rating === 0) {
+      ratedImages.value.delete(path);
+    } else {
+      ratedImages.value.set(path, rating);
+    }
+    await loadFavorites();
+    showToast(rating === 0 ? "已取消评级" : `已设置为 ${rating} 星`, "success");
+    
+    // 如果当前在星级视图，刷新显示
+    if (isRatingCollectionView.value) {
+      await showAllRatedImages();
+    }
+  } catch (error) {
+    console.error("设置评级失败", error);
+    showToast("设置评级失败", "error");
+  }
+}
+
 async function addCurrentToFavorites() {
   const node = currentNode.value;
   if (!node || !window.electron?.favorites) return;
@@ -1775,6 +1886,46 @@ async function removeFavorite(id: string) {
   if (!window.electron?.favorites) return;
   await window.electron.favorites.remove(id);
   await loadFavorites();
+}
+
+function getImageRating(path: string): number | undefined {
+  return ratedImages.value.get(path);
+}
+
+function handleRatingClick(event: MouseEvent | KeyboardEvent, item: GalleryItem) {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  const currentRating = getImageRating(item.path);
+  const target = event.target as HTMLElement;
+  const starElement = target.closest('.viewer-gallery__rating-star') as HTMLElement;
+  
+  if (!starElement || !starElement.parentElement) return;
+  
+  const stars = Array.from(starElement.parentElement.children);
+  const starIndex = stars.indexOf(starElement);
+  const newRating = starIndex + 1;
+  
+  // 如果点击的是当前评级，则取消评级
+  if (currentRating === newRating) {
+    setImageRating(item.path, 0);
+  } else {
+    setImageRating(item.path, newRating);
+  }
+}
+
+function handleLightboxRatingClick(rating: number) {
+  const current = currentGalleryItem.value;
+  if (!current) return;
+  
+  const currentRating = getImageRating(current.path);
+  
+  // 如果点击的是当前评级，则取消评级
+  if (currentRating === rating) {
+    setImageRating(current.path, 0);
+  } else {
+    setImageRating(current.path, rating);
+  }
 }
 
 async function openDirectoryPicker() {
@@ -2667,6 +2818,98 @@ async function moveSelectedToDirectory() {
   padding: 0 4px;
 }
 
+.toolbar-rating-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(90, 100, 120, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.toolbar-rating-filter__label {
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.7);
+  white-space: nowrap;
+}
+
+.toolbar-rating-filter__stars {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.toolbar-rating-filter__star {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(90, 100, 120, 0.18);
+  background: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(180, 190, 210, 0.7);
+}
+
+.toolbar-rating-filter__star:hover {
+  background: rgba(10, 132, 255, 0.14);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #0a84ff;
+}
+
+.toolbar-rating-filter__star.is-active {
+  background: rgba(246, 173, 85, 0.2);
+  border-color: rgba(246, 173, 85, 0.5);
+  color: #f6ad55;
+}
+
+.toolbar-rating-filter__star svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.toolbar-rating-filter__count {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(60, 60, 67, 0.8);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 1px 3px;
+  line-height: 1;
+  min-width: 12px;
+  text-align: center;
+}
+
+.toolbar-rating-filter__star.is-active .toolbar-rating-filter__count {
+  background: rgba(246, 173, 85, 0.3);
+  color: #f6ad55;
+}
+
+.toolbar-rating-filter__clear {
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.6);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.toolbar-rating-filter__clear:hover {
+  background: rgba(10, 132, 255, 0.1);
+  color: #0a84ff;
+}
+
 .viewer-sidebar {
   width: 260px;
   flex-shrink: 0;
@@ -3439,10 +3682,52 @@ async function moveSelectedToDirectory() {
   box-shadow: 0 4px 18px rgba(10, 132, 255, 0.4);
 }
 
-.viewer-gallery__fav {
+.viewer-gallery__actions {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.viewer-gallery__rating {
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.viewer-gallery__rating:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.viewer-gallery__rating-star {
+  width: 14px;
+  height: 14px;
+  color: rgba(180, 190, 210, 0.6);
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-gallery__rating-star.is-filled {
+  color: #f6ad55;
+}
+
+.viewer-gallery__rating-star svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.viewer-gallery__fav {
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -3689,6 +3974,43 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__toolbar-btn--close {
   background: rgba(255, 255, 255, 0.08);
   color: #fefefe;
+}
+
+.viewer-lightbox__rating {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 0 12px;
+  margin-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.viewer-lightbox__rating-star {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s ease, transform 0.1s ease;
+  border-radius: 6px;
+}
+
+.viewer-lightbox__rating-star:hover {
+  color: rgba(246, 173, 85, 0.8);
+  background: rgba(246, 173, 85, 0.1);
+  transform: scale(1.1);
+}
+
+.viewer-lightbox__rating-star.is-filled {
+  color: #f6ad55;
+}
+
+.viewer-lightbox__rating-star svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .viewer-lightbox__canvas {
@@ -4041,6 +4363,53 @@ async function moveSelectedToDirectory() {
   color: var(--color-text);
 }
 
+:root[data-theme="dark"] .toolbar-rating-filter {
+  background: rgba(34, 37, 54, 0.85);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__label {
+  color: rgba(226, 232, 240, 0.7);
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__star {
+  background: rgba(34, 37, 54, 0.6);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__star:hover {
+  background: rgba(10, 132, 255, 0.2);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #0a84ff;
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__star.is-active {
+  background: rgba(246, 173, 85, 0.25);
+  border-color: rgba(246, 173, 85, 0.5);
+  color: #f9e2af;
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__count {
+  background: rgba(34, 37, 54, 0.9);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__star.is-active .toolbar-rating-filter__count {
+  background: rgba(246, 173, 85, 0.3);
+  color: #f9e2af;
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__clear {
+  color: rgba(226, 232, 240, 0.6);
+}
+
+:root[data-theme="dark"] .toolbar-rating-filter__clear:hover {
+  background: rgba(10, 132, 255, 0.15);
+  color: #0a84ff;
+}
+
 :root[data-theme="dark"] .toolbar-dropdown__menu {
   background: rgba(18, 20, 32, 0.96);
   border-color: rgba(255, 255, 255, 0.1);
@@ -4108,6 +4477,22 @@ async function moveSelectedToDirectory() {
     rgba(77, 94, 196, 0.25)
   );
   border-color: rgba(145, 167, 255, 0.6);
+}
+
+:root[data-theme="dark"] .viewer-gallery__rating {
+  background: rgba(20, 23, 32, 0.9);
+}
+
+:root[data-theme="dark"] .viewer-gallery__rating:hover {
+  background: rgba(30, 33, 42, 0.95);
+}
+
+:root[data-theme="dark"] .viewer-gallery__rating-star {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+:root[data-theme="dark"] .viewer-gallery__rating-star.is-filled {
+  color: #f9e2af;
 }
 
 :root[data-theme="dark"] .viewer-gallery__fav {

@@ -4,17 +4,47 @@ import { basename, extname, join } from "node:path";
 import { LOCAL_FILE_PROTOCOL_SCHEME } from "./LocalFileProtocol.js";
 
 const IMAGE_EXTENSIONS = new Set([
+  // 标准格式
   "png",
   "jpg",
   "jpeg",
+  "webp",
   "bmp",
   "gif",
-  "webp",
   "tiff",
+  "tif",
+  "heic",
+  "heif",
   "svg",
-  'dng',
-  'DNG',
-  'RAW'
+  // 专业格式
+  "psd", // Adobe Photoshop
+  "dng", // Adobe Digital Negative
+  // RAW 格式（各相机厂商）
+  "raw", // 通用 RAW
+  "cr2", // Canon RAW 2
+  "cr3", // Canon RAW 3
+  "nef", // Nikon Electronic Format
+  "nrw", // Nikon RAW
+  "arw", // Sony Alpha RAW
+  "sr2", // Sony RAW 2
+  "srf", // Sony RAW Format
+  "orf", // Olympus RAW Format
+  "raf", // Fujifilm RAW
+  "rw2", // Panasonic RAW 2
+  "rwl", // Leica RAW
+  "3fr", // Hasselblad RAW
+  "fff", // Hasselblad RAW
+  "mrw", // Minolta RAW
+  "x3f", // Sigma RAW
+  "erf", // Epson RAW
+  "kdc", // Kodak RAW
+  "dcr", // Kodak RAW
+  "dcs", // Kodak RAW
+  "drf", // Kodak RAW
+  "mef", // Mamiya RAW
+  "mos", // Leaf RAW
+  "iiq", // Phase One RAW
+  "rwz", // Rawzor
 ]);
 
 type DirectoryNode = {
@@ -31,8 +61,26 @@ export function setupImageSelector() {
       properties: ["openFile", "multiSelections"],
       filters: [
         {
-          name: "Images",
-          extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp"],
+          name: "所有图片格式",
+          extensions: [
+            "png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif",
+            "heic", "heif", "svg", "psd", "dng", "raw", "cr2", "cr3",
+            "nef", "nrw", "arw", "sr2", "srf", "orf", "raf", "rw2",
+            "rwl", "3fr", "fff", "mrw", "x3f", "erf", "kdc", "dcr",
+            "dcs", "drf", "mef", "mos", "iiq", "rwz"
+          ],
+        },
+        {
+          name: "标准图片",
+          extensions: ["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "tif", "heic", "heif", "svg"],
+        },
+        {
+          name: "专业格式",
+          extensions: ["psd", "dng"],
+        },
+        {
+          name: "RAW 格式",
+          extensions: ["raw", "cr2", "cr3", "nef", "nrw", "arw", "sr2", "srf", "orf", "raf", "rw2", "rwl", "3fr", "fff", "mrw", "x3f", "erf", "kdc", "dcr", "dcs", "drf", "mef", "mos", "iiq", "rwz"],
         },
       ],
     });

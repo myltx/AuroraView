@@ -89,6 +89,7 @@ type FavoriteEntry = {
   name: string;
   path: string;
   addedAt: number;
+  rating?: number;
 };
 
 const favoritesAPI = {
@@ -98,6 +99,12 @@ const favoritesAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.FAVORITES_ADD, { path, name }) as Promise<FavoriteEntry[]>,
   remove: (id: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.FAVORITES_REMOVE, { id }) as Promise<FavoriteEntry[]>,
+  setRating: (path: string, rating: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.FAVORITES_SET_RATING, { path, rating }) as Promise<FavoriteEntry[]>,
+  getRating: (path: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.FAVORITES_GET_RATING, { path }) as Promise<number | undefined>,
+  listByRating: (rating: number) =>
+    ipcRenderer.invoke(IPC_CHANNELS.FAVORITES_LIST_BY_RATING, { rating }) as Promise<FavoriteEntry[]>,
 };
 
 const themeAPI = {
