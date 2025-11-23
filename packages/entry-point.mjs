@@ -1,5 +1,8 @@
 import {initApp} from '@app/main';
+import {app} from 'electron';
 import {fileURLToPath} from 'node:url';
+
+app.name = '助眠神奇';
 
 if (process.env.NODE_ENV === 'development' || process.env.PLAYWRIGHT_TEST === 'true' || !!process.env.CI) {
   function showAndExit(...args) {
