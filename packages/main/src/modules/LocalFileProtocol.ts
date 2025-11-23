@@ -1,7 +1,10 @@
-import { protocol, nativeImage } from "electron";
+import { protocol, nativeImage, app } from "electron";
 import { AppModule } from "../AppModule.js";
-import { extname } from "node:path";
-import { readFile, stat } from "node:fs/promises";
+import { extname, join } from "node:path";
+import { readFile, stat, mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { promisify } from "node:util";
+import { execFile } from "node:child_process";
 import {
   NEEDS_CONVERSION_IMAGE_EXTENSION_SET,
   RAW_IMAGE_EXTENSION_SET,
@@ -19,6 +22,7 @@ type ConversionCacheEntry = {
 };
 
 const conversionCache = new Map<string, ConversionCacheEntry>();
+const execFileAsync = promisify(execFile);
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -74,25 +78,25 @@ function trimConversionCache() {
 
 async function convertUsingSharp(filePath: string) {
   const sharp = await import("sharp");
-  const options = { failOn: "none" as const, limitInputPixels: 268435456 };
-  const metadata = await sharp.default(filePath, options).metadata();
-  const target = sharp
-    .default(filePath, options)
+  const base = sharp
+    .default(filePath, {
+      failOn: "none",
+      limitInputPixels: 0,
+      sequentialRead: true,
+    })
     .rotate()
-    .resize(MAX_CONVERTED_EDGE, MAX_CONVERTED_EDGE, {
-      fit: "inside",
-      withoutEnlargement: true,
-    });
+    .withMetadata();
 
-  if (metadata.hasAlpha) {
-    const pngBuffer = await target.png({ compressionLevel: 8 }).toBuffer();
-    return { data: pngBuffer, mimeType: "image/png" as const };
-  }
-
-  const jpegBuffer = await target
-    .jpeg({ quality: 92, chromaSubsampling: "4:4:4" })
+  const pngBuffer = await base
+    .clone()
+    .png({
+      compressionLevel: 0,
+      adaptiveFiltering: false,
+      bitdepth: 8,
+    })
     .toBuffer();
-  return { data: jpegBuffer, mimeType: "image/jpeg" as const };
+
+  return { data: pngBuffer, mimeType: "image/png" as const };
 }
 
 async function convertUsingNativeImage(filePath: string) {
@@ -101,6 +105,53 @@ async function convertUsingNativeImage(filePath: string) {
     throw new Error(`nativeImage 无法解析: ${filePath}`);
   }
   return { data: image.toPNG(), mimeType: "image/png" as const };
+}
+
+async function convertUsingSystemThumbnail(filePath: string) {
+  if (typeof nativeImage.createThumbnailFromPath !== "function") {
+    throw new Error("当前平台不支持系统缩略图");
+  }
+  const image = await nativeImage.createThumbnailFromPath(filePath, {
+    width: MAX_CONVERTED_EDGE,
+    height: MAX_CONVERTED_EDGE,
+  });
+  if (image.isEmpty()) {
+    throw new Error(`系统缩略图不可用: ${filePath}`);
+  }
+  return { data: image.toPNG(), mimeType: "image/png" as const };
+}
+
+async function generateQuickLookPreview(filePath: string) {
+  if (process.platform !== "darwin") return null;
+  try {
+    await stat(filePath);
+  } catch {
+    return null;
+  }
+  let tempDir: string | null = null;
+  try {
+    tempDir = await mkdtemp(join(tmpdir(), "photon-ql-"));
+    await execFileAsync("qlmanage", [
+      "-t",
+      "-s",
+      String(MAX_CONVERTED_EDGE),
+      "-o",
+      tempDir,
+      filePath,
+    ]);
+    const files = await readdir(tempDir);
+    const pngName = files.find((file) => file.toLowerCase().endsWith(".png"));
+    if (!pngName) return null;
+    const buffer = await readFile(join(tempDir, pngName));
+    return { data: buffer, mimeType: "image/png" as const };
+  } catch (error) {
+    console.warn("[LocalFileProtocol] QuickLook preview failed", error);
+    return null;
+  } finally {
+    if (tempDir) {
+      await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+  }
 }
 
 async function extractEmbeddedJpegPreview(filePath: string) {
@@ -133,17 +184,17 @@ async function getConvertedImage(filePath: string, ext: string) {
     return cached;
   }
 
-  try {
-    const converted = await convertUsingSharp(filePath);
-    const entry: ConversionCacheEntry = {
-      ...converted,
-      mtimeMs: stats.mtimeMs,
-    };
-    conversionCache.set(filePath, entry);
-    trimConversionCache();
-    return entry;
-  } catch (error) {
-    console.warn(`[LocalFileProtocol] sharp 处理失败(${ext})`, error);
+  if (process.platform === "darwin") {
+    const quicklook = await generateQuickLookPreview(filePath);
+    if (quicklook) {
+      const entry: ConversionCacheEntry = {
+        ...quicklook,
+        mtimeMs: stats.mtimeMs,
+      };
+      conversionCache.set(filePath, entry);
+      trimConversionCache();
+      return entry;
+    }
   }
 
   if (RAW_IMAGE_EXTENSION_SET.has(ext)) {
@@ -161,6 +212,32 @@ async function getConvertedImage(filePath: string, ext: string) {
     } catch (error) {
       console.warn(`[LocalFileProtocol] 提取嵌入预览失败(${ext})`, error);
     }
+  }
+
+  try {
+    const converted = await convertUsingSharp(filePath);
+    const entry: ConversionCacheEntry = {
+      ...converted,
+      mtimeMs: stats.mtimeMs,
+    };
+    conversionCache.set(filePath, entry);
+    trimConversionCache();
+    return entry;
+  } catch (error) {
+    console.warn(`[LocalFileProtocol] sharp 处理失败(${ext})`, error);
+  }
+
+  try {
+    const thumbnail = await convertUsingSystemThumbnail(filePath);
+    const entry: ConversionCacheEntry = {
+      ...thumbnail,
+      mtimeMs: stats.mtimeMs,
+    };
+    conversionCache.set(filePath, entry);
+    trimConversionCache();
+    return entry;
+  } catch (error) {
+    console.warn(`[LocalFileProtocol] 系统缩略图不可用(${ext})`, error);
   }
 
   const fallback = await convertUsingNativeImage(filePath);

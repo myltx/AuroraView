@@ -117,9 +117,7 @@
             </div>
           </div>
 
-          <div
-            v-if="isRatingCollectionView"
-            class="toolbar-rating-filter">
+          <div v-if="isRatingCollectionView" class="toolbar-rating-filter">
             <span class="toolbar-rating-filter__label">星级筛选：</span>
             <div class="toolbar-rating-filter__stars">
               <button
@@ -133,7 +131,9 @@
                   <path :d="SIDEBAR_ICONS.star" />
                 </svg>
                 <span class="toolbar-rating-filter__value">{{ rating }}★</span>
-                <span class="toolbar-rating-filter__count">{{ getRatingCount(rating) }}</span>
+                <span class="toolbar-rating-filter__count">{{
+                  getRatingCount(rating)
+                }}</span>
               </button>
             </div>
             <button
@@ -372,7 +372,9 @@
                       </svg>
                     </span>
                     <span class="sidebar-item__name">所有星级</span>
-                    <span class="sidebar-item__meta">{{ totalRatedCount }} 张</span>
+                    <span class="sidebar-item__meta"
+                      >{{ totalRatedCount }} 张</span
+                    >
                   </button>
                 </div>
               </li>
@@ -544,10 +546,16 @@
                     class="viewer-gallery__rating"
                     role="button"
                     tabindex="0"
-                    :title="`当前评级: ${getImageRating(item.path) || '未评级'}`"
+                    :title="`当前评级: ${
+                      getImageRating(item.path) || '未评级'
+                    }`"
                     @click.stop="handleRatingClick($event, item)"
-                    @keydown.enter.prevent.stop="handleRatingClick($event, item)"
-                    @keydown.space.prevent.stop="handleRatingClick($event, item)">
+                    @keydown.enter.prevent.stop="
+                      handleRatingClick($event, item)
+                    "
+                    @keydown.space.prevent.stop="
+                      handleRatingClick($event, item)
+                    ">
                     <span
                       v-for="star in [1, 2, 3, 4, 5]"
                       :key="star"
@@ -965,7 +973,7 @@ const { playing, start, stop } = useSlideshow();
 
 const sortedItems = computed(() => {
   const items = [...imageList.value];
-  
+
   // 如果在星级视图中，按星级从高到低排序
   if (isRatingCollectionView.value) {
     return items.sort((a, b) => {
@@ -978,7 +986,7 @@ const sortedItems = computed(() => {
       return a.name.localeCompare(b.name, undefined, { numeric: true });
     });
   }
-  
+
   // 普通目录视图的排序
   switch (sortMode.value) {
     case "name-desc":
@@ -999,7 +1007,7 @@ const sortedItems = computed(() => {
 
 const galleryItems = computed(() => {
   let items = sortedItems.value;
-  
+
   // 星级筛选（支持多选）- 只在星级视图时生效
   if (isRatingCollectionView.value && selectedRatingFilters.value.size > 0) {
     items = items.filter((item) => {
@@ -1007,7 +1015,7 @@ const galleryItems = computed(() => {
       return rating !== undefined && selectedRatingFilters.value.has(rating);
     });
   }
-  
+
   // 搜索筛选
   const query = searchQuery.value.trim().toLowerCase();
   if (query) {
@@ -1019,7 +1027,7 @@ const galleryItems = computed(() => {
         getDirectoryFromPath(item.path).toLowerCase().includes(query)
     );
   }
-  
+
   return items;
 });
 
@@ -1457,6 +1465,7 @@ function getDirectoryFromPath(path: string) {
   return normalized.slice(0, index);
 }
 
+
 async function addCustomDirectory() {
   const directory = await window.electron?.selectDirectory?.({
     title: "添加自定义目录",
@@ -1566,12 +1575,12 @@ async function activateDirectory(target: DirectoryTarget) {
   const path = target.path;
   const label = target.name;
   if (!path) return;
-  
+
   // 如果切换到非星级视图，清除星级筛选
   if (path !== RATING_COLLECTION_PATH) {
     selectedRatingFilters.value = new Set();
   }
-  
+
   activeNodePath.value = path;
   await loadImagesForDirectory(path);
   subscribeDirectoryWatcher(path);
@@ -1751,7 +1760,6 @@ const closeLightbox = () => {
   lightboxDirection.value = "none";
 };
 
-
 type RatingGalleryOptions = {
   resetFilters?: boolean;
   initialRatings?: number[];
@@ -1883,7 +1891,7 @@ async function setImageRating(path: string, rating: number) {
       await loadFavorites();
     }
     showToast(rating === 0 ? "已取消评级" : `已设置为 ${rating} 星`, "success");
-    
+
     // 如果当前在星级视图，刷新显示
     if (isRatingCollectionView.value) {
       await showAllRatedImages({ resetFilters: false });
@@ -1921,20 +1929,25 @@ function getImageRating(path: string): number | undefined {
   return ratedImages.value.get(path);
 }
 
-function handleRatingClick(event: MouseEvent | KeyboardEvent, item: GalleryItem) {
+function handleRatingClick(
+  event: MouseEvent | KeyboardEvent,
+  item: GalleryItem
+) {
   event.preventDefault();
   event.stopPropagation();
-  
+
   const currentRating = getImageRating(item.path);
   const target = event.target as HTMLElement;
-  const starElement = target.closest('.viewer-gallery__rating-star') as HTMLElement;
-  
+  const starElement = target.closest(
+    ".viewer-gallery__rating-star"
+  ) as HTMLElement;
+
   if (!starElement || !starElement.parentElement) return;
-  
+
   const stars = Array.from(starElement.parentElement.children);
   const starIndex = stars.indexOf(starElement);
   const newRating = starIndex + 1;
-  
+
   // 如果点击的是当前评级，则取消评级
   if (currentRating === newRating) {
     setImageRating(item.path, 0);
@@ -1946,9 +1959,9 @@ function handleRatingClick(event: MouseEvent | KeyboardEvent, item: GalleryItem)
 function handleLightboxRatingClick(rating: number) {
   const current = currentGalleryItem.value;
   if (!current) return;
-  
+
   const currentRating = getImageRating(current.path);
-  
+
   // 如果点击的是当前评级，则取消评级
   if (currentRating === rating) {
     setImageRating(current.path, 0);
@@ -4428,7 +4441,9 @@ async function moveSelectedToDirectory() {
   color: rgba(255, 255, 255, 0.7);
 }
 
-:root[data-theme="dark"] .toolbar-rating-filter__star.is-active .toolbar-rating-filter__count {
+:root[data-theme="dark"]
+  .toolbar-rating-filter__star.is-active
+  .toolbar-rating-filter__count {
   background: rgba(246, 173, 85, 0.3);
   color: #f9e2af;
 }
