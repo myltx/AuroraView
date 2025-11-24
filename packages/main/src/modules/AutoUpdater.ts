@@ -1,4 +1,5 @@
 import {AppModule} from '../AppModule.js';
+import {BrowserWindow, dialog} from 'electron';
 import electronUpdater, {type AppUpdater, type Logger} from 'electron-updater';
 
 type DownloadNotification = Parameters<AppUpdater['checkForUpdatesAndNotify']>[0];
@@ -45,7 +46,34 @@ export class AutoUpdater implements AppModule {
       percent: Math.round(progress.percent),
       bytesPerSecond: Math.round(progress.bytesPerSecond),
     }));
-    updater.on('update-downloaded', info => log('Update downloaded, will install on quit', info?.version));
+    updater.on('update-downloaded', async info => {
+      log('Update downloaded', info?.version ?? 'unknown');
+
+      const win =
+        BrowserWindow.getFocusedWindow() ??
+        BrowserWindow.getAllWindows()[0] ??
+        undefined;
+
+      const {response} = await dialog.showMessageBox(win, {
+        type: 'info',
+        buttons: ['立即重启', '稍后'],
+        defaultId: 0,
+        cancelId: 1,
+        title: '发现新版本',
+        message: '应用更新已准备就绪',
+        detail: info?.version
+          ? `已下载新版本 ${info.version}，现在重启即可应用更新。`
+          : '已下载新版本，现在重启即可应用更新。',
+      });
+
+      if (response === 0) {
+        // 立即重启并安装更新
+        updater.quitAndInstall();
+      } else {
+        // 保持默认行为：用户手动退出应用时再安装
+        log('User chose to install update on next app quit');
+      }
+    });
 
     try {
       updater.logger = this.#logger || null;

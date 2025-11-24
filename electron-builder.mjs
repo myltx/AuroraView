@@ -6,14 +6,25 @@ import {pathToFileURL} from 'node:url';
 export default /** @type import('electron-builder').Configuration */
 ({
   productName: "助眠神器",
+  appId: "com.myltx.auroraview",
   directories: {
     output: 'dist',
     buildResources: 'buildResources',
   },
   generateUpdatesFilesForAllChannels: true,
+  mac: {
+    target: ['dmg', 'zip'],
+  },
   linux: {
     target: ['deb'],
   },
+  publish: [
+    {
+      provider: "github",
+      owner: "myltx",
+      repo: "AuroraView",
+    },
+  ],
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
    * as they can unpredictably change during deployment, making them impossible to locate and download for update.
