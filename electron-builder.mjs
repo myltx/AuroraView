@@ -13,6 +13,7 @@ export default /** @type import('electron-builder').Configuration */
   },
   generateUpdatesFilesForAllChannels: true,
   mac: {
+    // 默认同时生成 dmg 和 zip，方便本地分发与自动更新共存
     target: ['dmg', 'zip'],
   },
   linux: {
