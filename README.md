@@ -1,324 +1,106 @@
+<div align="center">
 
-> [!Important]
-> This project is maintained by developer from Ukraine 🇺🇦
-> 
-> I do my best, but due to Russia's ongoing full-scale invasion of Ukraine, I barely have the energy to support open source projects.
->
-> If my work has been useful to you, please consider [supporting Ukraine](https://stand-with-ukraine.pp.ua/) or [me personally](https://send.monobank.ua/6SmojkkR9i). Even your **$1** has an impact!
+# Photon
 
-![IMG_0875](https://github.com/user-attachments/assets/590de304-e2c4-4935-9814-c18ade52fd8e)
+一个面向用户的轻量桌面应用，提供 Cockpit 总览与 Viewer 浏览两类核心界面，开箱即可运行与体验当前功能。
 
+</div>
 
-# Vite Electron Builder Boilerplate
+## 目录
 
-![GitHub last commit](https://img.shields.io/github/last-commit/cawa-93/vite-electron-builder?label=last%20update)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/electron) 
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/electron-builder)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/vite?filename=packages%2Fmain%2Fpackage.json)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/playwright)
+- 项目简介
+- 功能一览
+- 下载与安装
+- 使用指南
+- 支持平台
+- 常见问题
+- 开发与构建（转至文档）
 
-This is a template for secure electron applications. Written following the latest safety requirements, recommendations
-and best practices.
+## 项目简介
 
-## Get started
+Photon 旨在提供即开即用的桌面体验：进入应用后，你可以在 Cockpit 界面进行总体浏览/导航，在 Viewer 界面进行内容的查看与交互。应用以 Electron + Vue 构建，但对用户来说无需额外配置即可运行与体验。
 
-Follow these steps to get started with the template:
+## 功能一览
 
-1. Click the **[Use this template](https://github.com/cawa-93/vite-electron-builder/generate)** button (you must be logged in) or just clone this repo.
-2. Go to project folder and run `npm run init`.
-3. Start application in development mode by `npm start`.
-4. Compile executable by `npm run compile`.
- 
-That's all you need. 😉
+- 界面模块
+  - Cockpit 总览界面：包含左侧模块组件，适合进行导航与信息聚合。
+    - 组件示例：`src/views/cockpit/components/Left.vue`、`src/views/cockpit/components/LeftOne.vue`
+  - Viewer 浏览界面：用于内容的展示与交互。
+    - 示例视图：`packages/renderer/src/views/Viewer.vue`
+- 跨平台运行：基于 Electron，可在常见桌面平台运行。
+- 即时体验：本地一键启动，所见即所得地体验当前功能。
 
-> [!TIP]
-> You can explore the demo application for various frameworks and operating systems in the [Deployment](https://github.com/cawa-93/vite-electron-builder/deployments) section.
-> This will allow you to see how the application performs across different environments.
-> Additionally, you can verify the auto-update functionality by installing an outdated version of the application.
+> 注：随着版本演进，本节会持续更新实际可用的业务能力与操作要点。
 
-❤️ **If you like this template, give a ⭐ or [send support](https://www.buymeacoffee.com/kozack/)!**
+## 下载与安装
 
-## Features
+- 本地快速体验（推荐）
 
-### Lightweight
-When designing this template, I tried to keep it minimal, using the platform's native features to the maximum and minimizing the number of third-party dependencies.
+  1. 安装依赖：`npm ci`
+  2. 启动应用：`npm start`
+  3. 按提示等待主窗口打开
 
-### Electron
+- 安装包（可选）
+  - 你也可以构建安装包以进行分发或离线安装：
+    - 先构建：`npm run build`
+    - 再打包：`npm run compile`（调试建议：`npm run compile -- --dir -c.asar=false`）
 
-- This template uses the latest electron version with all the latest security patches.
-- The architecture of the application is built according to the security [guides](https://www.electronjs.org/docs/tutorial/security) and best practices.
-- The latest version of the [electron-builder] is used to package the application.
+## 使用指南
 
-### Automatic tests
+- 启动后默认进入主界面，可在应用内进入 Cockpit（总览）与 Viewer（浏览）两类页面。
+- Cockpit 适合进行模块导航与聚合浏览；Viewer 适合进行具体内容的查看与交互。
+- 推荐基础使用流程：
+  - 打开目录：点击工具栏左侧的「文件夹」按钮，或使用快捷键 `⌘/Ctrl + O`，选择包含图片的目录；
+  - 浏览缩略图：右侧区域会展示当前目录下的图片缩略图，可单击选择、双击进入大图预览；
+  - 调整视图：通过工具栏中的「标准视图 / 紧凑视图」切换缩略图大小，通过「排序」菜单按名称、时间或大小排序；
+  - 搜索与筛选：右上角搜索框可按文件名或目录名称过滤；在「星级筛选」区域可以按星级过滤图片；
+  - 收藏与常用目录：
+    - 左侧「收藏目录」支持将当前目录加入收藏，便于下次快速打开；
+    - 「系统目录」中会列出常用系统图片目录；
+    - 「自定义目录」支持手动添加任意常用工作目录。
+- 图片操作：
+  - 在缩略图区域选中一张或多张图片后，可通过右上角的「图片操作」菜单执行：
+    - 复制路径、显示原文件、重命名；
+    - 复制到目录 / 移动到目录；
+    - 导出或删除图片（删除操作会弹出确认提示）。
+- 大图查看与播放：
+  - 双击缩略图或按空格键可打开大图预览；
+  - 在大图模式下可以缩放、旋转、镜像、全屏播放幻灯片等（工具栏按钮提供相应操作）。
 
-- End-to-end are placed in the root [`tests`](tests) directory and use [playwright].
-- You may write any unit tests inside each package and use whatever you ~~want~~ need.
+后续版本会在此补充更细的操作示例与动图。
 
-### Continuous Integration
+## 快捷键一览
 
-- The configured workflow will check the types for each push and PR.
-- Code signing supported. See [code-signing documentation](https://www.electron.build/code-signing.html).
+> `⌘` 表示在 macOS 上使用 Command 键，在 Windows / Linux 上对应 Ctrl 键。
 
-### Auto-update
+- 目录与视图
+  - `⌘/Ctrl + O`：打开目录
+  - `⌘/Ctrl + R`：刷新当前目录
+  - `⌘/Ctrl + A`：选择当前目录下的所有图片
+- 图片管理
+  - `⌘/Ctrl + C`：复制选中图片的完整路径
+  - `⌘/Ctrl + Shift + C`：将选中图片复制到其他目录
+  - `⌘/Ctrl + Shift + M`：将选中图片移动到其他目录
+  - `⌘/Ctrl + E`：导出选中图片
+  - `Delete / Backspace`：删除选中图片
+- 浏览与预览
+  - `← / →`：在图片之间切换
+  - `Space`：打开或关闭当前图片的大图预览
+  - `Esc`：关闭当前打开的菜单或大图预览
 
-Each time you push changes to the `main` branch,
-the [`ci`](.github/workflows/ci.yml) workflow starts to create and deploy a new application version with then will be downloaded and applied by each app instance.
+## 支持平台
 
-### Professional image compatibility
+- 基于 Electron 的桌面运行环境，常见桌面平台均可运行（以构建产物为准）。
 
-- 内置 `sharp` + Electron `nativeImage` 转换管线，可直接预览 PSD、DNG 以及常见厂商 RAW（Canon CR2/CR3、Nikon NEF、Sony ARW、Fujifilm RAF 等）；
-- `photon-file://` 自定义协议会把这些专业格式转换成高质量 JPEG/PNG 缓存，渲染层与普通图片无差异；
-- 目录扫描、对话框筛选、缩略图与灯箱均复用了同一扩展名列表，保证体验一致。
+## 常见问题
 
-## Project Structure
+- 启动后白屏或无响应？
 
-The project is designed as monorepo where each part of the application is an independent package.
-Each package could have own tech stack, tests, dependencies, frameworks, etc.
-All internal names are prefixed by `@app/*`.
-There are no technical reasons for this.
-It's just for you to make it easier to understand the architecture.
+  - 先关闭并重新运行 `npm start`，确认依赖已安装完成。
 
-Initially, the repository contains only a few packages.4
+- 如何体验 Viewer 页面？
+  - 启动应用后，在界面中切换到 Viewer 相关入口即可查看。
 
-### Packages with building tools:
+## 开发与构建（转至文档）
 
-- [`packages/integrate-renderer`](packages/integrate-renderer) - A helper package that is not included in the runtime.
-  It is used in `npm run init` to configure a new interface package.
-- [`packages/electron-versions`](packages/electron-versions) - A set of helper functions to get the versions of internal components bundled within Electron.
-
-### Packages with app logic:
-
-- [`packages/main`](packages/main) - Implementation of Electron's [**main script**](https://www.electronjs.org/docs/tutorial/quick-start#create-the-main-script-file).
-- [`packages/preload`](packages/preload) - Implementation of Electron's [**preload scripts**](https://www.electronjs.org/docs/latest/tutorial/tutorial-preload).
-
-### Renderer is not included
-
-As you may have noticed, the repository does **not** contain a package that implements the application interface.
-The reason is that since the entire application is a mono-repository,
-you can use any web application based on any framework or bundler as a package for the interface.
-
-There is only one requirement: the template expects to import renderer by `@app/renderer` name.
-
-> [!TIP]
-> You can create new renderer package in interactive mode by `npm run init`.
-
-> [!NOTE]
-> If you are using a bundler other than vite,
-> you may need to slightly change the [dev-mode.js](packages/dev-mode.js) script to run it correctly.
-
-## How It works
-
-### Compile executable
-
-When an application is ready to distribute, you need to compile it into executable.
-We are using [electron-builder] for
-this.
-
-- You can compile application locally by `npm run compile`.
-  In this case, you will get executable that you cat share, but it will not support auto-updates out-of-box.
-- To have auto-updater, you should compile an application and publish it to one or more supported sources for distribution. In this case, all application instances will download and apply all new updates. This is done by GitHub action in [release.yml](.github/workflows/release.yml).
-
-> [!TIP]
-> This template is configured to use GitHub Releases to distribute updates, but you can configure whatever you need.
-> Find more in [electron-builder docs](https://www.electron.build/configuration/publish).
-
-
-### Working with third-party dependencies
-
-Because the `renderer` works and builds like a _regular web application_, you can only use dependencies that support the
-browser or compile to a browser-friendly format.
-
-This means that in the `renderer` you are free to use any frontend dependencies such as Vue, React, lodash, axios and so
-on. However, you _CANNOT_ use any native Node.js APIs, such as, `systeminformation`. These APIs are _only_ available in
-a Node.js runtime environment and will cause your application to crash if used in the `renderer` layer. Instead, if you
-need access to Node.js runtime APIs in your frontend, export a function form the `preload` package.
-
-All dependencies that require Node.js api can be used in
-the [`preload` script](https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts).
-
-#### Expose in the main world
-
-Here is an example. Let's say you need to read some data from the file system or database in the renderer.
-
-In the preload context, create a function that reads and returns data. To make the function announced in the preload
-available in the render, you usually need to call
-the [`electron.contextBridge.exposeInMainWorld`](https://www.electronjs.org/ru/docs/latest/api/context-bridge).
-
-However, this template is designed to use all power of ES modules.
-You can import anything from `preload` in `renderer`.
-All the data will quietly throw through the `electron.contextBridge.exposeInMainWorld()`,
-so you don't need to worry about it.
-
-```ts
-// preload/src/index.ts
-import {readFile} from 'node:fs/promises';
-
-// Encapsulate types if you use typescript
-interface UserData {
-  prop: string
-}
-
-// Will call `electron.contextBridge.exposeInMainWorld('getUserData', getUserData)`
-export function getUserData(): Promise<UserData> {
-  return readFile('/path/to/file/in/user/filesystem.json', {encoding: 'utf8'}).then(JSON.parse);
-}
-```
-
-Now you can import and call the method in renderer
-
-```ts
-// renderer/src/anywere/component.ts
-import {getUserData} from '@app/preload'
-
-// Method will came from exposed context
-// const userData = globalThis['getUserData']
-const userData = await getUserData()
-```
-
-> [!TIP]
-> Find more
-> in [Context Isolation tutorial](https://www.electronjs.org/docs/tutorial/context-isolation#security-considerations).
-
-### Working with Electron API
-
-Although the preload has access to all of Node.js API, it **still runs in the BrowserWindow context**, so only limited
-electron modules are available in it.
-
-> [!TIP]
-> Check the [electron docs](https://www.electronjs.org/ru/docs/latest/api/clipboard) for the full list of available
-> methods.
-
-All other electron methods can be invoked in the `main`.
-
-As a result, the architecture of interaction between all modules is as follows:
-
-```mermaid
-sequenceDiagram
-renderer->>+preload: Read data from file system
-preload->>-renderer: Data
-renderer->>preload: Maximize window
-activate preload
-preload-->>main: Invoke IPC command
-activate main
-main-->>preload: IPC response
-deactivate main
-preload->>renderer: Window maximized
-deactivate preload
-```
-
-> [!TIP]
-> Find more in [Inter-Process Communication tutorial](https://www.electronjs.org/docs/latest/tutorial/ipc).
-
-### Modes and Environment Variables
-
-All environment variables are set as part of the `import.meta`, so you can access them vie the following
-way: `import.meta.env`.
-
-> [!NOTE]
-> If you are using TypeScript and want to get code completion,
-> you must add all the environment variables to the [`ImportMetaEnv` in `types/env.d.ts`](types/env.d.ts).
-
-The mode option is used to specify the value of `import.meta.env.MODE` and the corresponding environment variables files
-that need to be loaded.
-
-By default, there are two modes:
-
-- `production` is used by default
-- `development` is used by `npm start` script
-
-When running the build script, the environment variables are loaded from the following files in your project root:
-
-```
-.env                # loaded in all cases
-.env.local          # loaded in all cases, ignored by git
-.env.[mode]         # only loaded in specified env mode
-.env.[mode].local   # only loaded in specified env mode, ignored by git
-```
-
-> [!WARNING]
-> To prevent accidentally leaking env variables to the client, only variables prefixed with `VITE_` are exposed to your
-> Vite-processed code.
-
-For example, let's take the following `.env` file:
-
-```
-DB_PASSWORD=foobar
-VITE_SOME_KEY=123
-```
-
-Only `VITE_SOME_KEY` will be exposed as `import.meta.env.VITE_SOME_KEY` to your client source code, but `DB_PASSWORD`
-will not.
-
-> [!TIP]
-> You can change that prefix or add another. See [`envPrefix`](https://vitejs.dev/config/shared-options.html#envprefix).
-
-### NPM Scripts
-
-```sh
-npm start
-```
-Start application in development more with hot-reload.
-
----
-```sh
-npm run build
-```
-Runs the `build` command in all workspaces if present.
-
----
-```sh
-npm run compile
-```
-First runs the `build` script,
-then compiles the project into executable using `electron-builder` with the specified configuration.
-
----
-```sh
-npm run compile -- --dir -c.asar=false
-```
-Same as `npm run compile` but pass to `electron-builder` additional parameters to disable asar archive and installer
-creating.
-Useful for debugging compiled application.
-
----
-```sh
-npm run test
-```
-Executes end-to-end tests on **compiled app** using Playwright.
-
----
-```sh
-npm run typecheck
-```
-Runs the `typecheck` command in all workspaces if present.
-
----
-```sh
-npm run create-renderer
-```
-Initializes a new Vite project named `renderer`. Basically same as `npm create vite`.
-
----
-```sh
-npm run integrate-renderer
-```
-Starts the integration process of the renderer using the Vite Electron builder.
-
----
-```sh
-npm run init
-```
-Set up the initial environment by creating a new renderer, integrating it, and installing the necessary packages.
-
-## Contribution
-
-See [Contributing Guide](CONTRIBUTING.md).
-
-
-[vite]: https://github.com/vitejs/vite/
-
-[electron]: https://github.com/electron/electron
-
-[electron-builder]: https://github.com/electron-userland/electron-builder
-
-[playwright]: https://playwright.dev
+- 工程结构、脚本命令、构建与测试、环境变量与安全实践等内容，已迁移至：`docs/DeveloperGuide.md`

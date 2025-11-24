@@ -96,6 +96,23 @@ export function createApplicationMenuModule(): AppModule {
           role: "help",
           submenu: [
             {
+              label: "使用说明（在线）",
+              click: () => {
+                shell.openExternal(
+                  "https://github.com/mayunlong/Photon#%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97"
+                );
+              },
+            },
+            {
+              label: "快捷键一览",
+              click: () => {
+                shell.openExternal(
+                  "https://github.com/mayunlong/Photon#%E5%BF%AB%E6%8D%B7%E9%94%AE%E4%B8%80%E8%A7%88"
+                );
+              },
+            },
+            { type: "separator" },
+            {
               label: "项目文档",
               click: () => {
                 shell.openExternal("https://github.com/mayunlong/Photon");

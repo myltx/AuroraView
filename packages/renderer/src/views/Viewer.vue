@@ -189,6 +189,7 @@
                 class="toolbar-dropdown__item"
                 role="menuitem"
                 :disabled="!hasSelection"
+                title="复制路径 (⌘/Ctrl + C)"
                 @click="() => runAndClose(copySelectedPaths)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
@@ -225,6 +226,7 @@
                 class="toolbar-dropdown__item"
                 role="menuitem"
                 :disabled="!hasSelection"
+                title="复制到目录 (⌘/Ctrl + Shift + C)"
                 @click="() => runAndClose(copySelectedToDirectory)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
@@ -237,6 +239,7 @@
                 class="toolbar-dropdown__item"
                 role="menuitem"
                 :disabled="!hasSelection"
+                title="移动到目录 (⌘/Ctrl + Shift + M)"
                 @click="() => runAndClose(moveSelectedToDirectory)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
@@ -249,6 +252,7 @@
                 class="toolbar-dropdown__item"
                 role="menuitem"
                 :disabled="!hasSelection"
+                title="导出 (⌘/Ctrl + E)"
                 @click="() => runAndClose(exportSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
@@ -261,6 +265,7 @@
                 class="toolbar-dropdown__item toolbar-dropdown__item--danger"
                 role="menuitem"
                 :disabled="!hasSelection"
+                title="删除 (Delete / Backspace)"
                 @click="() => runAndClose(deleteSelected)">
                 <span class="toolbar-dropdown__icon">
                   <svg viewBox="0 0 24 24">
