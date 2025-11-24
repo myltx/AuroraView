@@ -26,10 +26,10 @@ export default /** @type import('electron-builder').Configuration */
     },
   ],
   /**
-   * It is recommended to avoid using non-standard characters such as spaces in artifact names,
-   * as they can unpredictably change during deployment, making them impossible to locate and download for update.
+   * It is recommended to avoid using non-standard characters (spaces, non-ASCII, etc.) in artifact names,
+   * as they can unpredictably change during deployment and may break update URLs.
    */
-  artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+  artifactName: 'AuroraView-${version}-${os}-${arch}.${ext}',
   files: [
     'LICENSE*',
     pkg.main,
