@@ -17,8 +17,8 @@ export function createApplicationMenuModule(): AppModule {
     async enable({ app }: ModuleContext) {
       await app.whenReady();
       const isMac = process.platform === "darwin";
-      if (app.name !== "助眠神奇") {
-        app.setName("助眠神奇");
+      if (app.name !== "助眠神器") {
+        app.setName("助眠神器");
       }
 
       const template: MenuItemConstructorOptions[] = [

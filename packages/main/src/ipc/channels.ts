@@ -1,6 +1,7 @@
 export const IPC_CHANNELS = {
   FS_READ_DIRECTORY: "fs:read-directory",
   FS_GET_SYSTEM_DIRECTORIES: "fs:get-system-directories",
+  FS_GET_EXTERNAL_VOLUMES: "fs:get-external-volumes",
   FAVORITES_LIST: "favorites:list",
   FAVORITES_ADD: "favorites:add",
   FAVORITES_REMOVE: "favorites:remove",

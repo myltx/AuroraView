@@ -61,6 +61,7 @@ interface FileSystemAPI {
     options?: DirectoryReadOptions
   ) => Promise<DirectoryReadResult>;
   getSystemDirectories: () => Promise<SystemDirectory[]>;
+  getExternalVolumes: () => Promise<SystemDirectory[]>;
   watchDirectory: (
     path: string,
     handler: (payload: DirectoryChangePayload) => void

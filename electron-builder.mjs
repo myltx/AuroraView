@@ -5,7 +5,7 @@ import {pathToFileURL} from 'node:url';
 
 export default /** @type import('electron-builder').Configuration */
 ({
-  productName: "助眠神奇",
+  productName: "助眠神器",
   directories: {
     output: 'dist',
     buildResources: 'buildResources',

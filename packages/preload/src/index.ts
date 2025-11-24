@@ -68,6 +68,8 @@ const fsAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.FS_READ_DIRECTORY, { path, options }) as Promise<DirectoryReadResult>,
   getSystemDirectories: () =>
     ipcRenderer.invoke(IPC_CHANNELS.FS_GET_SYSTEM_DIRECTORIES) as Promise<SystemDirectory[]>,
+  getExternalVolumes: () =>
+    ipcRenderer.invoke(IPC_CHANNELS.FS_GET_EXTERNAL_VOLUMES) as Promise<SystemDirectory[]>,
   watchDirectory: (path: string, handler: (payload: DirectoryChangePayload) => void) => {
     if (!path) return () => undefined;
     const listener = (_event: Electron.IpcRendererEvent, payload: DirectoryChangePayload) => {

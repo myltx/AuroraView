@@ -22,6 +22,10 @@ export function createFileSystemModule(): AppModule {
       ipcMain.handle(IPC_CHANNELS.FS_GET_SYSTEM_DIRECTORIES, () => {
         return service.getSystemDirectories();
       });
+
+      ipcMain.handle(IPC_CHANNELS.FS_GET_EXTERNAL_VOLUMES, () => {
+        return service.getExternalVolumes();
+      });
     },
   };
 }

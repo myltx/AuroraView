@@ -15,7 +15,7 @@
             </svg>
           </button>
           <div class="toolbar-title">
-            <span class="toolbar-title__primary">助眠神奇</span>
+            <span class="toolbar-title__primary">助眠神器</span>
             <span class="toolbar-title__path" :title="currentDirectoryLabel">
               {{ currentDirectoryLabel }}
             </span>
@@ -294,7 +294,7 @@
       class="viewer-body"
       :class="{
         'viewer-body--narrow': isNarrowLayout,
-        'viewer-body--sidebar-collapsed': isSidebarCollapsed
+        'viewer-body--sidebar-collapsed': isSidebarCollapsed,
       }">
       <aside
         class="viewer-sidebar"
@@ -403,6 +403,56 @@
             </ul>
             <p v-if="!hasAnyRatedImages" class="sidebar-empty">
               尚未评级图片，可在缩略图上点击星标添加评级
+            </p>
+          </section>
+
+          <section class="sidebar-group">
+            <header class="sidebar-group__header">
+              <button
+                type="button"
+                class="sidebar-group__label"
+                @click="toggleGroup('external')">
+                <svg
+                  class="sidebar-group__chevron"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ open: groupState.external }">
+                  <path :d="SIDEBAR_ICONS.chevron" />
+                </svg>
+                外接存储
+              </button>
+            </header>
+            <ul v-show="groupState.external" class="sidebar-list" role="list">
+              <li
+                v-for="node in flattenedExternal"
+                :key="node.path"
+                class="sidebar-list__item">
+                <div
+                  class="sidebar-item-row"
+                  :style="{ '--sidebar-indent': `${node.depth * 14}px` }">
+                  <button
+                    class="sidebar-item"
+                    :class="{
+                      'is-active': node.path === activeNodePath,
+                      'is-drop-target': dragOverPath === node.path,
+                    }"
+                    @click="selectNode(node)"
+                    @dragenter.prevent="handleNodeDragEnter(node, $event)"
+                    @dragover.prevent="handleNodeDragOver(node, $event)"
+                    @dragleave="handleNodeDragLeave(node, $event)"
+                    @drop.prevent="handleNodeDrop(node, $event)">
+                    <span class="sidebar-item__icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path :d="SIDEBAR_ICONS.drive" />
+                      </svg>
+                    </span>
+                    <span class="sidebar-item__name">{{ node.name }}</span>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <p v-if="!flattenedExternal.length" class="sidebar-empty">
+              未检测到外接存储
             </p>
           </section>
 
@@ -794,6 +844,7 @@ import {
 type SidebarNodeType =
   | "system"
   | "favorite"
+  | "external"
   | "directory"
   | "custom"
   | "history";
@@ -838,6 +889,8 @@ const SIDEBAR_ICONS: Record<string, string> = {
   plus: "M12 5v6H6v2h6v6h2v-6h6v-2h-6V5z",
   refresh:
     "M12 4a8 8 0 0 1 7.9 7.1H22l-3.3 3.9L15.5 11h2.1A6 6 0 1 0 18 13h2a8 8 0 1 1-8-9z",
+  drive:
+    "M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2 0v7h12V7H6zm2 9h8v2H8z",
   chevron: "M9 6l6 6-6 6",
   close: "M8.5 8.5l6.9 6.9m0-6.9-6.9 6.9",
 };
@@ -913,6 +966,7 @@ const lightboxVisible = ref(false);
 const lightboxDirection = ref<"none" | "forward" | "backward">("none");
 const systemRoots = ref<SidebarNode[]>([]);
 const favoriteRoots = ref<SidebarNode[]>([]);
+const externalRoots = ref<SidebarNode[]>([]);
 const nodeRegistry = reactive(new Map<string, SidebarNode>());
 const selectedIndexes = ref<Set<number>>(new Set());
 const lastSelectedIndex = ref<number | null>(null);
@@ -952,12 +1006,15 @@ const isRatingCollectionView = computed(
 const totalRatedCount = computed(() => ratedImages.value.size);
 const groupState = reactive({
   favorites: true,
+  external: true,
   system: true,
   custom: true,
 });
 const toggleGroup = (key: keyof typeof groupState) => {
   groupState[key] = !groupState[key];
 };
+const isMacPlatform =
+  typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
 const SIDEBAR_BREAKPOINT = 900;
 const isNarrowLayout = ref(false);
 const isSidebarCollapsed = ref(false);
@@ -1087,6 +1144,7 @@ const currentNode = computed(() => {
     nodeRegistry.get(activeNodePath.value) ??
     findNodeByPath(activeNodePath.value, favoriteRoots.value) ??
     findNodeByPath(activeNodePath.value, systemRoots.value) ??
+    findNodeByPath(activeNodePath.value, externalRoots.value) ??
     null
   );
 });
@@ -1096,6 +1154,7 @@ const canAddFavorite = computed(
 );
 
 const flattenedFavorites = computed(() => flattenNodes(favoriteRoots.value));
+const flattenedExternal = computed(() => flattenNodes(externalRoots.value));
 const flattenedSystem = computed(() => flattenNodes(systemRoots.value));
 const flattenedCustom = computed(() => flattenNodes(customRoots.value));
 const currentDirectoryLabel = computed(() => {
@@ -1126,6 +1185,7 @@ const pointerState = reactive({
 });
 let momentumFrame: number | null = null;
 let stopWatchingDirectory: (() => void) | null = null;
+let stopWatchingVolumes: (() => void) | null = null;
 const thumbnailCache = useThumbnailCache();
 let cleanupAppAction: (() => void) | null = null;
 let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
@@ -1231,6 +1291,10 @@ onBeforeUnmount(() => {
   cancelMomentum();
   clearToastTimers();
   stopWatchingCurrentDirectory();
+  if (stopWatchingVolumes) {
+    stopWatchingVolumes();
+    stopWatchingVolumes = null;
+  }
   if (bootstrapRetryTimer) {
     window.clearTimeout(bootstrapRetryTimer);
     bootstrapRetryTimer = null;
@@ -1263,7 +1327,12 @@ async function bootstrapSidebar() {
   }
 
   try {
-    await Promise.all([loadSystemDirectories(), loadFavorites()]);
+    await Promise.all([
+      loadSystemDirectories(),
+      loadFavorites(),
+      loadExternalVolumes(),
+    ]);
+    setupVolumeWatcher();
     bootstrapRetryCount = 0;
     if (bootstrapRetryTimer) {
       window.clearTimeout(bootstrapRetryTimer);
@@ -1374,6 +1443,34 @@ async function loadSystemDirectories() {
   systemRoots.value = dirs.map((dir) =>
     createNode({ path: dir.path, name: dir.name, depth: 0, type: "system" })
   );
+}
+
+async function loadExternalVolumes() {
+  if (!isMacPlatform) {
+    externalRoots.value = [];
+    return;
+  }
+  const fs = window.electron?.fs;
+  if (!fs?.getExternalVolumes) {
+    externalRoots.value = [];
+    return;
+  }
+  try {
+    const volumes = await fs.getExternalVolumes();
+    externalRoots.value = (volumes ?? []).map((vol) =>
+      createNode({
+        path: vol.path,
+        name: vol.name,
+        depth: 0,
+        type: "external",
+        register: false,
+        reuseExisting: false,
+      })
+    );
+  } catch (error) {
+    console.warn("读取外接卷信息失败，外接存储功能不可用", error);
+    externalRoots.value = [];
+  }
 }
 
 async function loadFavorites() {
@@ -1492,7 +1589,6 @@ function getDirectoryFromPath(path: string) {
   if (index <= 0) return normalized;
   return normalized.slice(0, index);
 }
-
 
 async function addCustomDirectory() {
   const directory = await window.electron?.selectDirectory?.({
@@ -2537,6 +2633,26 @@ function scheduleBootstrapRetry() {
   bootstrapRetryCount += 1;
 }
 
+function setupVolumeWatcher() {
+  if (!isMacPlatform) return;
+  const fs = window.electron?.fs;
+  if (!fs?.watchDirectory) return;
+  if (stopWatchingVolumes) {
+    stopWatchingVolumes();
+    stopWatchingVolumes = null;
+  }
+  try {
+    stopWatchingVolumes = fs.watchDirectory("/Volumes", () => {
+      loadExternalVolumes().catch((error) => {
+        console.error("刷新外接存储失败", error);
+      });
+    });
+  } catch (error) {
+    console.warn("监听 /Volumes 失败，外接存储热插拔不可用", error);
+    stopWatchingVolumes = null;
+  }
+}
+
 async function renameSelected() {
   if (selectedGalleryItems.value.length !== 1 || !window.electron?.fileOps)
     return;
@@ -2802,8 +2918,8 @@ async function moveSelectedToDirectory() {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease,
-    color 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .toolbar-sidebar-toggle svg {
