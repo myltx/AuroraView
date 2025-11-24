@@ -55,6 +55,23 @@ interface UserPreferences {
   themePreference: ThemePreference;
 }
 
+interface PsdMetadata {
+  edited?: boolean;
+}
+
+interface PsdVariant {
+  path: string;
+  extension: string;
+}
+
+interface PsdGroup {
+  baseName: string;
+  directory: string;
+  psd: PsdVariant;
+  others: PsdVariant[];
+  metadata: PsdMetadata;
+}
+
 interface FileSystemAPI {
   readDirectory: (
     path: string,
@@ -112,6 +129,12 @@ type AppActionPayload = {
   type: "open-directory" | "refresh-directory";
 };
 
+interface PsdAPI {
+  getGroups: (directory: string) => Promise<PsdGroup[]>;
+  getMetadata: (path: string) => Promise<PsdMetadata>;
+  setEdited: (path: string, edited: boolean) => Promise<PsdMetadata>;
+}
+
 interface ElectronAPI {
   toggleFullscreen: () => void;
   selectImages: () => Promise<string[]>;
@@ -123,6 +146,7 @@ interface ElectronAPI {
   theme: ThemeAPI;
   preferences: PreferencesAPI;
   onAction: (handler: (payload: AppActionPayload) => void) => () => void;
+  psd: PsdAPI;
 }
 
 declare global {

@@ -95,6 +95,18 @@
             </button>
           </div>
 
+          <div class="toolbar-icon-group">
+            <button
+              class="toolbar-button toolbar-interactive"
+              :disabled="!psdGroups.length"
+              title="管理当前目录中的 PSD 标记"
+              @click="openPsdManager">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.psdManager" />
+              </svg>
+            </button>
+          </div>
+
           <div
             class="toolbar-dropdown toolbar-dropdown--icon"
             :class="{ 'is-open': themeMenuOpen }"
@@ -675,6 +687,15 @@
                   </span>
                 </div>
                 <p class="viewer-gallery__caption" :title="item.name">
+                  <button
+                    v-if="item.extension === 'psd'"
+                    type="button"
+                    class="psd-tag"
+                    :class="{ 'psd-tag--active': isPsdEdited(item.path) }"
+                    :title="isPsdEdited(item.path) ? '标记为未修' : '标记为已修'"
+                    @click.stop="togglePsdEdited(item.path)">
+                    {{ isPsdEdited(item.path) ? "已修" : "未修" }}
+                  </button>
                   {{ item.name }}
                 </p>
               </button>
@@ -687,6 +708,57 @@
             请选择目录以加载缩略图
           </p>
         </section>
+      </div>
+    </div>
+
+    <div v-if="psdManagerOpen" class="psd-manager">
+      <div class="psd-manager__header">
+        <h2 class="psd-manager__title">PSD 标记管理</h2>
+        <button
+          type="button"
+          class="psd-manager__close"
+          title="关闭"
+          @click="closePsdManager">
+          ×
+        </button>
+      </div>
+      <div class="psd-manager__body">
+        <p v-if="!psdGroups.length" class="psd-manager__empty">
+          当前目录中未检测到 PSD 文件。
+        </p>
+        <p v-else-if="!pendingPsdGroups.length" class="psd-manager__empty">
+          当前目录中的 PSD 已全部标记完成。
+        </p>
+        <ul v-else class="psd-manager__list">
+          <li
+            v-for="group in pendingPsdGroups"
+            :key="group.psd.path"
+            class="psd-manager__item">
+            <div class="psd-manager__main">
+              <span class="psd-manager__name">{{ group.psd.path }}</span>
+              <span class="psd-manager__badge">待标记</span>
+            </div>
+            <div class="psd-manager__meta">
+              <span class="psd-manager__label">同名变体：</span>
+              <span v-if="!group.others.length" class="psd-manager__label-muted">
+                无
+              </span>
+              <span
+                v-else
+                class="psd-manager__variant"
+                v-for="other in group.others"
+                :key="other.path">
+                {{ other.extension.toUpperCase() }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="psd-manager__action"
+              @click="togglePsdEdited(group.psd.path)">
+              标记为已修
+            </button>
+          </li>
+        </ul>
       </div>
     </div>
 
@@ -862,6 +934,7 @@ import { useImageViewer } from "../composables/useImageViewer";
 import { useSlideshow } from "../composables/useSlideshow";
 import { useThumbnailCache } from "../composables/useThumbnailCache";
 import { useSystemTheme } from "../composables/useSystemTheme";
+import { usePsdMetadata } from "../composables/usePsdMetadata";
 import { ALL_IMAGE_EXTENSIONS } from "@app/main/src/constants/imageExtensions";
 import type { ThemeMode, ThemePreference } from "../types/theme";
 import {
@@ -953,6 +1026,8 @@ const TOOLBAR_ICONS = {
   pause: "M7 6h3v12H7zm7 0h3v12h-3z",
   fullscreen:
     "M6 6h5v2H8v3H6zm10 0v5h-2V8h-3V6zm-3 10h3v-3h2v5h-5zm-4 0v2H6v-5h2v3z",
+  psdManager:
+    "M5 7h14v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1zM7 5h6v2H7zm3 4h6v2h-6zm0 3h4v2h-4z",
 };
 const ACTION_ICONS = {
   copyPaths:
@@ -1046,6 +1121,13 @@ const groupState = reactive({
 const toggleGroup = (key: keyof typeof groupState) => {
   groupState[key] = !groupState[key];
 };
+const { isEdited: isPsdEdited, loadFromGroups: loadPsdGroups, toggleEdited: togglePsdEdited } =
+  usePsdMetadata();
+const psdGroups = ref<PsdGroup[]>([]);
+const psdManagerOpen = ref(false);
+const pendingPsdGroups = computed(() =>
+  psdGroups.value.filter((group) => !isPsdEdited(group.psd.path))
+);
 const isMacPlatform =
   typeof navigator !== "undefined" && /Mac/i.test(navigator.platform);
 const SIDEBAR_BREAKPOINT = 900;
@@ -1720,6 +1802,26 @@ async function loadImagesForDirectory(path: string) {
   currentIndex.value = 0;
   lightboxVisible.value = false;
   resetLightboxView();
+
+  // 加载当前目录下包含 psd 的同名分组，用于虚拟“已修”标签
+  if (window.electron?.psd) {
+    try {
+      const groups = await window.electron.psd.getGroups(path);
+      psdGroups.value = groups;
+      await loadPsdGroups(groups);
+    } catch (error) {
+      console.warn("加载 PSD 分组失败", error);
+    }
+  }
+}
+
+function openPsdManager() {
+  if (!psdGroups.value.length) return;
+  psdManagerOpen.value = true;
+}
+
+function closePsdManager() {
+  psdManagerOpen.value = false;
 }
 
 type DirectoryTarget = SidebarNode | { path: string; name: string };
@@ -4016,6 +4118,174 @@ async function moveSelectedToDirectory() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.psd-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(90, 100, 120, 0.25);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  color: rgba(60, 60, 67, 0.7);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.psd-tag--active {
+  border-color: rgba(10, 132, 255, 0.7);
+  background: rgba(10, 132, 255, 0.12);
+  color: #0a84ff;
+}
+
+.psd-manager {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 340px;
+  max-height: 60vh;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+  padding: 12px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 60;
+}
+
+.psd-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.psd-manager__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(28, 28, 30, 0.9);
+}
+
+.psd-manager__close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: rgba(60, 60, 67, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.psd-manager__close:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.psd-manager__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 4px;
+}
+
+.psd-manager__empty {
+  margin: 6px 2px 4px;
+  font-size: 12px;
+  color: rgba(60, 60, 67, 0.6);
+}
+
+.psd-manager__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.psd-manager__item {
+  padding: 8px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 130, 150, 0.14);
+  background: rgba(248, 249, 252, 0.95);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.psd-manager__main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.psd-manager__name {
+  flex: 1;
+  font-size: 12px;
+  color: rgba(28, 28, 30, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.psd-manager__badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(255, 186, 73, 0.18);
+  color: #c97a10;
+}
+
+.psd-manager__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: rgba(60, 60, 67, 0.7);
+}
+
+.psd-manager__label {
+  color: rgba(60, 60, 67, 0.7);
+}
+
+.psd-manager__label-muted {
+  color: rgba(60, 60, 67, 0.45);
+}
+
+.psd-manager__variant {
+  padding: 1px 5px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 130, 150, 0.3);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.psd-manager__action {
+  margin-top: 4px;
+  align-self: flex-end;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: rgba(10, 132, 255, 0.1);
+  color: #0a84ff;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.psd-manager__action:hover {
+  background: rgba(10, 132, 255, 0.18);
 }
 
 .viewer-gallery__item.is-active {

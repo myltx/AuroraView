@@ -63,6 +63,23 @@ type AppActionPayload = {
   type: "open-directory" | "refresh-directory";
 };
 
+type PsdMetadata = {
+  edited?: boolean;
+};
+
+type PsdVariant = {
+  path: string;
+  extension: string;
+};
+
+type PsdGroup = {
+  baseName: string;
+  directory: string;
+  psd: PsdVariant;
+  others: PsdVariant[];
+  metadata: PsdMetadata;
+};
+
 const fsAPI = {
   readDirectory: (path: string, options?: DirectoryReadOptions) =>
     ipcRenderer.invoke(IPC_CHANNELS.FS_READ_DIRECTORY, { path, options }) as Promise<DirectoryReadResult>,
@@ -140,6 +157,15 @@ const actionAPI = {
   },
 };
 
+const psdAPI = {
+  getGroups: (directory: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PSD_GET_GROUPS, { directory }) as Promise<PsdGroup[]>,
+  getMetadata: (path: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PSD_GET_METADATA, { path }) as Promise<PsdMetadata>,
+  setEdited: (path: string, edited: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.PSD_SET_EDITED, { path, edited }) as Promise<PsdMetadata>,
+};
+
 const electronAPI = {
   toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
   selectImages: () =>
@@ -169,6 +195,7 @@ const electronAPI = {
   theme: themeAPI,
   preferences: preferencesAPI,
   onAction: actionAPI.onAction,
+  psd: psdAPI,
 };
 
 contextBridge.exposeInMainWorld("electron", electronAPI);

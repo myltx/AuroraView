@@ -22,6 +22,9 @@ export const IPC_CHANNELS = {
   PREFERENCES_GET: "preferences:get",
   PREFERENCES_SET: "preferences:set",
   APP_ACTION: "app:action",
+  PSD_GET_GROUPS: "psd:get-groups",
+  PSD_GET_METADATA: "psd:get-metadata",
+  PSD_SET_EDITED: "psd:set-edited",
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

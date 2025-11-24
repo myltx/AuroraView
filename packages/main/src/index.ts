@@ -16,6 +16,7 @@ import { createDirectoryWatcherModule } from "./modules/DirectoryWatcherModule.j
 import { createSystemThemeModule } from "./modules/SystemThemeModule.js";
 import { createPreferencesModule } from "./modules/PreferencesModule.js";
 import { createApplicationMenuModule } from "./modules/ApplicationMenu.js";
+import { createPsdModule } from "./modules/PsdModule.js";
 
 export async function initApp(initConfig: AppInitConfig) {
   const moduleRunner = createModuleRunner()
@@ -67,7 +68,8 @@ export async function initApp(initConfig: AppInitConfig) {
         )
       )
     )
-    .init(createLocalFileProtocolModule());
+    .init(createLocalFileProtocolModule())
+    .init(createPsdModule());
 
   await moduleRunner;
   setupImageSelector();
