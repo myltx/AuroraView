@@ -1,9 +1,19 @@
 <template>
-  <div class="viewer">
+  <div class="viewer" :class="{ 'viewer--narrow': isNarrowLayout }">
     <header class="viewer-unified-toolbar">
       <div class="toolbar-traffic-space" aria-hidden="true"></div>
       <div class="toolbar-content">
         <div class="toolbar-left">
+          <button
+            type="button"
+            class="toolbar-sidebar-toggle toolbar-interactive"
+            :class="{ 'is-collapsed': isSidebarCollapsed }"
+            aria-label="切换侧边栏"
+            @click="toggleSidebar">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path :d="SIDEBAR_ICONS.chevron" />
+            </svg>
+          </button>
           <div class="toolbar-title">
             <span class="toolbar-title__primary">助眠神奇</span>
             <span class="toolbar-title__path" :title="currentDirectoryLabel">
@@ -280,8 +290,15 @@
       </div>
     </header>
 
-    <div class="viewer-body">
-      <aside class="viewer-sidebar">
+    <div
+      class="viewer-body"
+      :class="{
+        'viewer-body--narrow': isNarrowLayout,
+        'viewer-body--sidebar-collapsed': isSidebarCollapsed
+      }">
+      <aside
+        class="viewer-sidebar"
+        :class="{ 'viewer-sidebar--collapsed': isSidebarCollapsed }">
         <nav class="sidebar-groups sidebar-groups--flush">
           <section class="sidebar-group">
             <header class="sidebar-group__header">
@@ -941,6 +958,9 @@ const groupState = reactive({
 const toggleGroup = (key: keyof typeof groupState) => {
   groupState[key] = !groupState[key];
 };
+const SIDEBAR_BREAKPOINT = 900;
+const isNarrowLayout = ref(false);
+const isSidebarCollapsed = ref(false);
 const viewerMenuOpen = ref(false);
 const viewerMenuRef = ref<HTMLElement | null>(null);
 const themeMenuOpen = ref(false);
@@ -1150,6 +1170,8 @@ const bottomSpacer = computed(() =>
 );
 
 onMounted(async () => {
+  updateResponsiveLayout();
+  window.addEventListener("resize", handleWindowResize);
   loadCustomDirectories();
   loadRecentDirectories();
   await bootstrapSidebar();
@@ -1205,6 +1227,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   destroyGalleryObservers();
   window.removeEventListener("keydown", handleKeydown);
+  window.removeEventListener("resize", handleWindowResize);
   cancelMomentum();
   clearToastTimers();
   stopWatchingCurrentDirectory();
@@ -2595,6 +2618,32 @@ async function copySelectedToDirectory() {
   }
 }
 
+function updateResponsiveLayout() {
+  if (typeof window === "undefined") return;
+  const width = window.innerWidth;
+  const wasNarrow = isNarrowLayout.value;
+  const nextIsNarrow = width < SIDEBAR_BREAKPOINT;
+  isNarrowLayout.value = nextIsNarrow;
+
+  if (nextIsNarrow && !wasNarrow) {
+    // 进入窄屏模式时默认折叠侧边栏，让缩略图区域优先展示
+    isSidebarCollapsed.value = true;
+  } else if (!nextIsNarrow && wasNarrow) {
+    // 退出窄屏模式时自动恢复显示侧边栏
+    isSidebarCollapsed.value = false;
+  }
+}
+
+function handleWindowResize() {
+  updateResponsiveLayout();
+}
+
+function toggleSidebar() {
+  // 在窄屏下允许手动展开/收起侧边栏
+  if (!isNarrowLayout.value) return;
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+}
+
 async function moveSelectedToDirectory() {
   if (!selectedGalleryItems.value.length || !window.electron?.fileOps) return;
   const destination = await pickDestination("选择移动到的目录");
@@ -2637,14 +2686,6 @@ async function moveSelectedToDirectory() {
   overflow: hidden;
   font-family: "SF Pro Text", "SF Pro Display", -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.viewer-body {
-  flex: 1;
-  display: flex;
-  gap: 12px;
-  min-height: 0;
-  padding-top: 12px;
 }
 
 .viewer-unified-toolbar {
@@ -2710,7 +2751,9 @@ async function moveSelectedToDirectory() {
 
 .toolbar-left {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .toolbar-spacer {
@@ -2746,6 +2789,44 @@ async function moveSelectedToDirectory() {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.toolbar-sidebar-toggle {
+  display: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(60, 60, 67, 0.75);
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease, transform 0.2s ease;
+}
+
+.toolbar-sidebar-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  transform: rotate(-90deg);
+}
+
+.toolbar-sidebar-toggle.is-collapsed svg {
+  transform: rotate(90deg);
+}
+
+.toolbar-sidebar-toggle:hover {
+  background: rgba(10, 132, 255, 0.14);
+  border-color: rgba(10, 132, 255, 0.4);
+  color: #0a84ff;
+}
+
+.viewer--narrow .toolbar-sidebar-toggle {
+  display: inline-flex;
 }
 
 .toolbar-group {
@@ -3241,6 +3322,58 @@ async function moveSelectedToDirectory() {
   margin: 6px 0 0 8px;
   font-size: 12px;
   color: rgba(60, 60, 67, 0.4);
+}
+
+.viewer-body {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  padding-top: 12px;
+  transition: padding 0.2s ease;
+}
+
+.viewer-body--narrow {
+  gap: 8px;
+}
+
+.viewer-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(120, 130, 150, 0.08);
+  background: linear-gradient(
+    180deg,
+    rgba(248, 249, 252, 0.72),
+    rgba(244, 246, 250, 0.82)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 25px 60px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(28px) saturate(160%);
+  overflow: hidden;
+  transition: width 0.25s ease, padding 0.25s ease, margin 0.25s ease,
+    opacity 0.2s ease, transform 0.25s ease, border-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.viewer-sidebar--collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: -4px;
+  margin-right: -4px;
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
+}
+
+.viewer-body--sidebar-collapsed .viewer-main {
+  flex: 1;
 }
 
 .viewer-main {
@@ -4358,12 +4491,8 @@ async function moveSelectedToDirectory() {
 }
 
 @media (max-width: 960px) {
-  .viewer {
-    flex-direction: column;
-  }
-
-  .viewer-sidebar {
-    width: 100%;
+  .viewer-body {
+    gap: 8px;
   }
 }
 
