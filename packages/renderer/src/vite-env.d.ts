@@ -126,13 +126,30 @@ interface PreferencesAPI {
 }
 
 type AppActionPayload = {
-  type: "open-directory" | "refresh-directory";
+  type:
+    | "open-directory"
+    | "refresh-directory"
+    | "view-mode-regular"
+    | "view-mode-compact"
+    | "theme-auto"
+    | "theme-light"
+    | "theme-dark"
+    | "open-psd-manager"
+    | "file-copy-paths"
+    | "file-copy-to-directory"
+    | "file-move-to-directory"
+    | "file-export"
+    | "file-delete";
 };
 
 interface PsdAPI {
   getGroups: (directory: string) => Promise<PsdGroup[]>;
   getMetadata: (path: string) => Promise<PsdMetadata>;
   setEdited: (path: string, edited: boolean) => Promise<PsdMetadata>;
+}
+
+interface ViewAPI {
+  notifyViewMode: (mode: "regular" | "compact") => void;
 }
 
 interface ElectronAPI {
@@ -146,6 +163,7 @@ interface ElectronAPI {
   theme: ThemeAPI;
   preferences: PreferencesAPI;
   onAction: (handler: (payload: AppActionPayload) => void) => () => void;
+  view: ViewAPI;
   psd: PsdAPI;
 }
 

@@ -72,69 +72,46 @@
             </div>
           </div>
 
-          <div class="toolbar-icon-group toolbar-view-mode">
-            <button
-              class="toolbar-button toolbar-interactive"
-              :class="{ 'is-active': viewMode === 'regular' }"
-              title="标准视图"
-              :aria-pressed="viewMode === 'regular'"
-              @click="setViewMode('regular')">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="TOOLBAR_ICONS.viewRegular" />
-              </svg>
-            </button>
-            <button
-              class="toolbar-button toolbar-interactive"
-              :class="{ 'is-active': viewMode === 'compact' }"
-              title="紧凑视图"
-              :aria-pressed="viewMode === 'compact'"
-              @click="setViewMode('compact')">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="TOOLBAR_ICONS.viewCompact" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="toolbar-icon-group">
-            <button
-              class="toolbar-button toolbar-interactive"
-              :disabled="!psdGroups.length"
-              title="管理当前目录中的 PSD 标记"
-              @click="openPsdManager">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="TOOLBAR_ICONS.psdManager" />
-              </svg>
-            </button>
-          </div>
-
           <div
-            class="toolbar-dropdown toolbar-dropdown--icon"
-            :class="{ 'is-open': themeMenuOpen }"
-            ref="themeMenuRef">
+            class="toolbar-dropdown toolbar-dropdown--icon toolbar-interactive"
+            :class="{ 'is-open': viewModeMenuOpen }"
+            ref="viewModeMenuRef">
             <button
-              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon toolbar-interactive"
-              title="主题模式"
-              aria-label="主题模式"
-              @click="toggleThemeMenu">
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
+              aria-label="视图模式"
+              @click="toggleViewModeMenu">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="TOOLBAR_ICONS.theme" />
+                <path
+                  :d="
+                    viewMode === 'regular'
+                      ? TOOLBAR_ICONS.viewRegular
+                      : TOOLBAR_ICONS.viewCompact
+                  " />
               </svg>
             </button>
             <div
-              v-if="themeMenuOpen"
+              v-if="viewModeMenuOpen"
               class="toolbar-dropdown__menu"
               role="menu">
               <button
-                v-for="option in themeOptions"
-                :key="option.value"
                 class="toolbar-dropdown__item"
                 role="menuitemradio"
-                :aria-checked="themePreference === option.value"
-                @click="() => selectThemePreference(option.value)">
+                :aria-checked="viewMode === 'regular'"
+                @click="() => setViewMode('regular')">
                 <span class="toolbar-dropdown__check">
-                  {{ themePreference === option.value ? "✓" : "" }}
+                  {{ viewMode === "regular" ? "✓" : "" }}
                 </span>
-                <span class="toolbar-dropdown__label">{{ option.label }}</span>
+                <span class="toolbar-dropdown__label">标准视图</span>
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="viewMode === 'compact'"
+                @click="() => setViewMode('compact')">
+                <span class="toolbar-dropdown__check">
+                  {{ viewMode === "compact" ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">紧凑视图</span>
               </button>
             </div>
           </div>
@@ -658,34 +635,6 @@
                     :alt="item.name"
                     loading="lazy" />
                 </div>
-                <div class="viewer-gallery__actions">
-                  <span
-                    class="viewer-gallery__rating"
-                    role="button"
-                    tabindex="0"
-                    :title="`当前评级: ${
-                      getImageRating(item.path) || '未评级'
-                    }`"
-                    @click.stop="handleRatingClick($event, item)"
-                    @keydown.enter.prevent.stop="
-                      handleRatingClick($event, item)
-                    "
-                    @keydown.space.prevent.stop="
-                      handleRatingClick($event, item)
-                    ">
-                    <span
-                      v-for="star in [1, 2, 3, 4, 5]"
-                      :key="star"
-                      class="viewer-gallery__rating-star"
-                      :class="{
-                        'is-filled': getImageRating(item.path) && getImageRating(item.path)! >= star
-                      }">
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path :d="SIDEBAR_ICONS.star" />
-                      </svg>
-                    </span>
-                  </span>
-                </div>
                 <p class="viewer-gallery__caption" :title="item.name">
                   <button
                     v-if="item.extension === 'psd'"
@@ -775,6 +724,25 @@
               {{ formatFileSize(currentMetadata.size) }} ·
               {{ formatDate(currentMetadata.modifiedAt) }}
             </p>
+            <div
+              class="viewer-lightbox__rating"
+              @mouseleave="hoverRating = null">
+              <span
+                v-for="star in [1, 2, 3, 4, 5]"
+                :key="star"
+                class="viewer-lightbox__rating-star"
+                :class="{
+                  'is-filled':
+                    currentGalleryItem && getDisplayedRatingForCurrent() >= star
+                }"
+                :title="`设置为 ${star} 星`"
+                @mouseenter="hoverRating = star"
+                @click="handleLightboxRatingClick(star)">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="SIDEBAR_ICONS.star" />
+                </svg>
+              </span>
+            </div>
           </div>
           <div class="viewer-lightbox__header-actions">
             <div class="viewer-lightbox__controls">
@@ -802,62 +770,6 @@
                   <path :d="TOOLBAR_ICONS.reset" />
                 </svg>
               </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
-                title="旋转 90° (R)"
-                @click="runViewerAction(rotate)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="TOOLBAR_ICONS.rotate" />
-                </svg>
-              </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
-                title="水平翻转"
-                @click="runViewerAction(toggleFlipX)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="TOOLBAR_ICONS.flipX" />
-                </svg>
-              </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
-                title="垂直翻转"
-                @click="runViewerAction(toggleFlipY)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="TOOLBAR_ICONS.flipY" />
-                </svg>
-              </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
-                :title="playing ? '暂停幻灯片' : '播放幻灯片'"
-                @click="runViewerAction(toggleSlideshow)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    :d="playing ? TOOLBAR_ICONS.pause : TOOLBAR_ICONS.play" />
-                </svg>
-              </button>
-              <button
-                class="viewer-lightbox__toolbar-btn"
-                title="全屏切换"
-                @click="runViewerAction(toggleFullscreen)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="TOOLBAR_ICONS.fullscreen" />
-                </svg>
-              </button>
-            </div>
-            <div class="viewer-lightbox__rating">
-              <span
-                v-for="star in [1, 2, 3, 4, 5]"
-                :key="star"
-                class="viewer-lightbox__rating-star"
-                :class="{
-                  'is-filled': currentGalleryItem && getImageRating(currentGalleryItem.path) && getImageRating(currentGalleryItem.path)! >= star
-                }"
-                :title="`设置为 ${star} 星`"
-                @click="handleLightboxRatingClick(star)">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path :d="SIDEBAR_ICONS.star" />
-                </svg>
-              </span>
             </div>
             <button
               class="viewer-lightbox__toolbar-btn viewer-lightbox__toolbar-btn--close"
@@ -978,7 +890,7 @@ type GalleryItem = {
   size: number;
 };
 
-type SortMode = "name-asc" | "name-desc" | "modified-desc" | "size-desc";
+type SortMode = "name-asc" | "name-desc" | "modified-desc" | "size-desc" | "type-asc";
 type ToastVariant = "info" | "success" | "error";
 type ToastMessage = {
   id: number;
@@ -1093,6 +1005,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set(
 );
 const selectedRatingFilters = ref<Set<number>>(new Set());
 const ratedImages = ref<Map<string, number>>(new Map());
+const hoverRating = ref<number | null>(null);
 const allFavoriteEntries = ref<FavoriteEntry[]>([]);
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
@@ -1137,11 +1050,14 @@ const viewerMenuOpen = ref(false);
 const viewerMenuRef = ref<HTMLElement | null>(null);
 const themeMenuOpen = ref(false);
 const themeMenuRef = ref<HTMLElement | null>(null);
+const viewModeMenuOpen = ref(false);
+const viewModeMenuRef = ref<HTMLElement | null>(null);
 const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: "name-asc", label: "名称 A→Z" },
   { value: "name-desc", label: "名称 Z→A" },
   { value: "modified-desc", label: "最近修改" },
   { value: "size-desc", label: "文件大小" },
+  { value: "type-asc", label: "文件类型" },
 ];
 const themeOptions: Array<{ value: ThemePreference; label: string }> = [
   { value: "auto", label: "自动" },
@@ -1186,6 +1102,15 @@ const sortedItems = computed(() => {
 
   // 普通目录视图的排序
   switch (sortMode.value) {
+    case "type-asc":
+      return items.sort((a, b) => {
+        const extA = (a.extension || "").toLowerCase();
+        const extB = (b.extension || "").toLowerCase();
+        if (extA !== extB) {
+          return extA.localeCompare(extB, undefined, { numeric: true });
+        }
+        return a.name.localeCompare(b.name, undefined, { numeric: true });
+      });
     case "name-desc":
       return items.sort((a, b) =>
         b.name.localeCompare(a.name, undefined, { numeric: true })
@@ -1374,6 +1299,12 @@ onMounted(async () => {
         closeSortMenu();
       }
     }
+    if (viewModeMenuOpen.value) {
+      const viewModeEl = viewModeMenuRef.value;
+      if (viewModeEl && !viewModeEl.contains(target)) {
+        closeViewModeMenu();
+      }
+    }
     if (viewerMenuOpen.value) {
       const viewerEl = viewerMenuRef.value;
       if (viewerEl && !viewerEl.contains(target)) {
@@ -1390,10 +1321,46 @@ onMounted(async () => {
   document.addEventListener("mousedown", handleOutsideClick);
   if (window.electron?.onAction) {
     cleanupAppAction = window.electron.onAction((payload) => {
-      if (payload.type === "open-directory") {
-        openDirectoryPicker();
-      } else if (payload.type === "refresh-directory") {
-        bootstrapSidebar();
+      switch (payload.type) {
+        case "open-directory":
+          openDirectoryPicker();
+          break;
+        case "refresh-directory":
+          bootstrapSidebar();
+          break;
+        case "view-mode-regular":
+          setViewMode("regular");
+          break;
+        case "view-mode-compact":
+          setViewMode("compact");
+          break;
+        case "theme-auto":
+          setTheme("auto");
+          break;
+        case "theme-light":
+          setTheme("light");
+          break;
+        case "theme-dark":
+          setTheme("dark");
+          break;
+        case "open-psd-manager":
+          openPsdManager();
+          break;
+        case "file-copy-paths":
+          copySelectedPaths();
+          break;
+        case "file-copy-to-directory":
+          copySelectedToDirectory();
+          break;
+        case "file-move-to-directory":
+          moveSelectedToDirectory();
+          break;
+        case "file-export":
+          exportSelected();
+          break;
+        case "file-delete":
+          deleteSelected();
+          break;
       }
     });
   }
@@ -1696,6 +1663,8 @@ function syncCustomNodes() {
 
 function setViewMode(mode: ViewMode) {
   viewMode.value = mode;
+  closeViewModeMenu();
+  window.electron?.view?.notifyViewMode(mode);
 }
 
 function getDirectoryFromPath(path: string) {
@@ -2163,6 +2132,15 @@ async function setImageRating(path: string, rating: number) {
   }
 }
 
+function getDisplayedRatingForCurrent(): number {
+  if (hoverRating.value !== null) {
+    return hoverRating.value;
+  }
+  const current = currentGalleryItem.value;
+  if (!current) return 0;
+  return getImageRating(current.path) ?? 0;
+}
+
 async function addCurrentToFavorites() {
   const node = currentNode.value;
   const favoritesApi = window.electron?.favorites;
@@ -2460,9 +2438,15 @@ function handleKeydown(event: KeyboardEvent) {
   const meta = event.metaKey || event.ctrlKey;
   const key = event.key.toLowerCase();
   if (key === "escape") {
-    if (actionsMenuOpen.value || sortMenuOpen.value || viewerMenuOpen.value) {
+    if (
+      actionsMenuOpen.value ||
+      sortMenuOpen.value ||
+      viewModeMenuOpen.value ||
+      viewerMenuOpen.value
+    ) {
       closeActionsMenu();
       closeSortMenu();
+      closeViewModeMenu();
       closeViewerMenu();
       return;
     }
@@ -2659,6 +2643,23 @@ function closeSortMenu() {
 function selectSort(mode: SortMode) {
   sortMode.value = mode;
   closeSortMenu();
+}
+
+function toggleViewModeMenu() {
+  if (actionsMenuOpen.value) {
+    closeActionsMenu();
+  }
+  if (sortMenuOpen.value) {
+    closeSortMenu();
+  }
+  if (themeMenuOpen.value) {
+    closeThemeMenu();
+  }
+  viewModeMenuOpen.value = !viewModeMenuOpen.value;
+}
+
+function closeViewModeMenu() {
+  viewModeMenuOpen.value = false;
 }
 
 function closeViewerMenu() {
@@ -4294,81 +4295,6 @@ async function moveSelectedToDirectory() {
   box-shadow: 0 4px 18px rgba(10, 132, 255, 0.4);
 }
 
-.viewer-gallery__actions {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.viewer-gallery__rating {
-  display: flex;
-  gap: 2px;
-  padding: 4px 6px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.viewer-gallery__rating:hover {
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.viewer-gallery__rating-star {
-  width: 14px;
-  height: 14px;
-  color: rgba(180, 190, 210, 0.6);
-  transition: color 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.viewer-gallery__rating-star.is-filled {
-  color: #f6ad55;
-}
-
-.viewer-gallery__rating-star svg {
-  width: 100%;
-  height: 100%;
-  fill: currentColor;
-}
-
-.viewer-gallery__fav {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.85);
-  color: rgba(180, 190, 210, 0.9);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.viewer-gallery__fav svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
-}
-
-.viewer-gallery__fav.is-active {
-  background: rgba(255, 255, 255, 0.95);
-  color: #f6ad55;
-}
-
-.viewer-gallery__fav:hover {
-  background: rgba(10, 132, 255, 0.15);
-  color: #0a84ff;
-}
-
 .viewer-gallery__placeholder {
   text-align: center;
   color: var(--color-muted);
@@ -4592,9 +4518,8 @@ async function moveSelectedToDirectory() {
   display: flex;
   gap: 4px;
   align-items: center;
-  padding: 0 12px;
-  margin-left: 12px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0;
+  margin-top: 4px;
 }
 
 .viewer-lightbox__rating-star {

@@ -1,10 +1,23 @@
 import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
 import type { MenuItemConstructorOptions } from "electron";
-import { BrowserWindow, Menu, shell } from "electron";
+import { BrowserWindow, Menu, shell, ipcMain } from "electron";
 import { IPC_CHANNELS } from "../ipc/channels.js";
 
-type AppMenuAction = "open-directory" | "refresh-directory";
+type AppMenuAction =
+  | "open-directory"
+  | "refresh-directory"
+  | "view-mode-regular"
+  | "view-mode-compact"
+  | "theme-auto"
+  | "theme-light"
+  | "theme-dark"
+  | "open-psd-manager"
+  | "file-copy-paths"
+  | "file-copy-to-directory"
+  | "file-move-to-directory"
+  | "file-export"
+  | "file-delete";
 
 function dispatchAction(type: AppMenuAction) {
   const win =
@@ -54,6 +67,37 @@ export function createApplicationMenuModule(): AppModule {
               click: () => dispatchAction("refresh-directory"),
             },
             { type: "separator" },
+            {
+              label: "复制选中图片路径",
+              accelerator: "CmdOrCtrl+C",
+              click: () => dispatchAction("file-copy-paths"),
+            },
+            {
+              label: "复制到其他目录…",
+              accelerator: "CmdOrCtrl+Shift+C",
+              click: () => dispatchAction("file-copy-to-directory"),
+            },
+            {
+              label: "移动到其他目录…",
+              accelerator: "CmdOrCtrl+Shift+M",
+              click: () => dispatchAction("file-move-to-directory"),
+            },
+            {
+              label: "导出选中图片…",
+              accelerator: "CmdOrCtrl+E",
+              click: () => dispatchAction("file-export"),
+            },
+            {
+              label: "删除选中图片",
+              accelerator: "Delete",
+              click: () => dispatchAction("file-delete"),
+            },
+            { type: "separator" },
+            {
+              label: "PSD 标记管理…",
+              click: () => dispatchAction("open-psd-manager"),
+            },
+            { type: "separator" },
             isMac ? { role: "close" } : { role: "quit" },
           ] as MenuItemConstructorOptions[],
         },
@@ -78,6 +122,47 @@ export function createApplicationMenuModule(): AppModule {
         {
           label: "视图",
           submenu: [
+            {
+              label: "布局",
+              submenu: [
+                {
+                  label: "标准视图",
+                  type: "radio",
+                  id: "view-mode-regular",
+                  checked: true,
+                  click: () => dispatchAction("view-mode-regular"),
+                },
+                {
+                  label: "紧凑视图",
+                  type: "radio",
+                  id: "view-mode-compact",
+                  click: () => dispatchAction("view-mode-compact"),
+                },
+              ] as MenuItemConstructorOptions[],
+            },
+            { type: "separator" },
+            {
+              label: "主题",
+              submenu: [
+                {
+                  label: "自动",
+                  type: "radio",
+                  checked: true,
+                  click: () => dispatchAction("theme-auto"),
+                },
+                {
+                  label: "浅色",
+                  type: "radio",
+                  click: () => dispatchAction("theme-light"),
+                },
+                {
+                  label: "深色",
+                  type: "radio",
+                  click: () => dispatchAction("theme-dark"),
+                },
+              ] as MenuItemConstructorOptions[],
+            },
+            { type: "separator" },
             { role: "togglefullscreen" },
             { role: "toggleDevTools" },
           ] as MenuItemConstructorOptions[],
@@ -124,6 +209,16 @@ export function createApplicationMenuModule(): AppModule {
 
       const menu = Menu.buildFromTemplate(template);
       Menu.setApplicationMenu(menu);
+
+      ipcMain.on("view:mode-changed", (_event, mode: "regular" | "compact") => {
+        const appMenu = Menu.getApplicationMenu();
+        if (!appMenu) return;
+        const regularItem = appMenu.getMenuItemById("view-mode-regular");
+        const compactItem = appMenu.getMenuItemById("view-mode-compact");
+        if (!regularItem || !compactItem) return;
+        regularItem.checked = mode === "regular";
+        compactItem.checked = mode === "compact";
+      });
     },
   };
 }

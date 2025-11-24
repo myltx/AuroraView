@@ -166,6 +166,12 @@ const psdAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.PSD_SET_EDITED, { path, edited }) as Promise<PsdMetadata>,
 };
 
+const viewAPI = {
+  notifyViewMode: (mode: "regular" | "compact") => {
+    ipcRenderer.send("view:mode-changed", mode);
+  },
+};
+
 const electronAPI = {
   toggleFullscreen: () => ipcRenderer.send("toggle-fullscreen"),
   selectImages: () =>
@@ -195,6 +201,7 @@ const electronAPI = {
   theme: themeAPI,
   preferences: preferencesAPI,
   onAction: actionAPI.onAction,
+  view: viewAPI,
   psd: psdAPI,
 };
 
