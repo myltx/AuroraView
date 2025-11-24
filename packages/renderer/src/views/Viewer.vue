@@ -431,6 +431,15 @@
                   class="sidebar-item-row"
                   :style="{ '--sidebar-indent': `${node.depth * 14}px` }">
                   <button
+                    v-if="node.isDirectory"
+                    class="sidebar-item__toggle"
+                    :class="{ open: node.isExpanded }"
+                    @click.stop="toggleNode(node)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.chevron" />
+                    </svg>
+                  </button>
+                  <button
                     class="sidebar-item"
                     :class="{
                       'is-active': node.path === activeNodePath,
@@ -443,7 +452,13 @@
                     @drop.prevent="handleNodeDrop(node, $event)">
                     <span class="sidebar-item__icon">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path :d="SIDEBAR_ICONS.drive" />
+                        <path
+                          :d="
+                            node.depth === 0 && node.type === 'external'
+                              ? SIDEBAR_ICONS.drive
+                              : SIDEBAR_ICONS.folder
+                          "
+                        />
                       </svg>
                     </span>
                     <span class="sidebar-item__name">{{ node.name }}</span>
@@ -544,7 +559,18 @@
                 v-for="node in flattenedCustom"
                 :key="node.path"
                 class="sidebar-list__item">
-                <div class="sidebar-item-row">
+                <div
+                  class="sidebar-item-row"
+                  :style="{ '--sidebar-indent': `${node.depth * 14}px` }">
+                  <button
+                    v-if="node.isDirectory"
+                    class="sidebar-item__toggle"
+                    :class="{ open: node.isExpanded }"
+                    @click.stop="toggleNode(node)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path :d="SIDEBAR_ICONS.chevron" />
+                    </svg>
+                  </button>
                   <button
                     class="sidebar-item"
                     :class="{
@@ -558,13 +584,20 @@
                     @drop.prevent="handleNodeDrop(node, $event)">
                     <span class="sidebar-item__icon">
                       <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path :d="SIDEBAR_ICONS.user" />
+                        <path
+                          :d="
+                            node.depth === 0 && node.type === 'custom'
+                              ? SIDEBAR_ICONS.user
+                              : SIDEBAR_ICONS.folder
+                          "
+                        />
                       </svg>
                     </span>
                     <span class="sidebar-item__name">{{ node.name }}</span>
                   </button>
                   <button
                     class="sidebar-item__action"
+                    v-if="node.customId"
                     title="移除目录"
                     @click.stop="removeCustomDirectory(node.customId)">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3216,7 +3249,7 @@ async function moveSelectedToDirectory() {
 
 .sidebar-groups {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding-right: 4px;
   display: flex;
   flex-direction: column;
@@ -3226,6 +3259,11 @@ async function moveSelectedToDirectory() {
 .sidebar-groups--flush {
   padding-right: 0;
   gap: 14px;
+}
+
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-group__header {
@@ -3298,6 +3336,9 @@ async function moveSelectedToDirectory() {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .sidebar-list__item {
