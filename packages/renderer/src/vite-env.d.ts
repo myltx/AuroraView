@@ -137,6 +137,7 @@ type AppActionPayload = {
     | "theme-auto"
     | "theme-light"
     | "theme-dark"
+    | "open-help"
     | "open-psd-manager"
     | "file-copy-paths"
     | "file-copy-to-directory"

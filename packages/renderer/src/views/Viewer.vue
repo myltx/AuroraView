@@ -891,6 +891,75 @@
       </div>
     </div>
 
+    <div v-if="helpVisible" class="viewer-help">
+      <div class="viewer-help__backdrop" @click="closeHelp"></div>
+      <div class="viewer-help__content">
+        <header class="viewer-help__header">
+          <h1 class="viewer-help__title">AuroraView 使用说明</h1>
+          <button
+            type="button"
+            class="viewer-help__close"
+            title="关闭说明"
+            @click="closeHelp">
+            ×
+          </button>
+        </header>
+        <div class="viewer-help__body">
+          <section class="viewer-help__section">
+            <h2>1. 快速开始</h2>
+            <ul>
+              <li>使用工具栏左侧的「文件夹」按钮或快捷键 <kbd>⌘/Ctrl + O</kbd> 打开图片目录。</li>
+              <li>单击缩略图选中图片，双击缩略图打开大图预览。</li>
+              <li>右键缩略图可使用系统或指定应用打开、在 Finder 中显示等。</li>
+            </ul>
+          </section>
+          <section class="viewer-help__section">
+            <h2>2. 目录与侧边栏</h2>
+            <ul>
+              <li>左侧包含「收藏目录」「星级图片」「外接存储」「系统目录」「自定义目录」等分组。</li>
+              <li>点击目录可切换当前浏览路径，点击分组右侧的「＋」按钮可添加常用目录。</li>
+              <li>在缩略图上右键选择「复制到/移动到目录」，可配合侧边栏快速整理图片。</li>
+            </ul>
+          </section>
+          <section class="viewer-help__section">
+            <h2>3. 修图状态（PSD + RAW）</h2>
+            <ul>
+              <li>同名的 RAW/JPG/PSD 会自动分成一个分组，例如 <code>photo.dng / photo.jpg / photo.psd</code>。</li>
+              <li>在 PSD 上点击「标记为已修」后，该分组会被视为已修，缩略图右上角显示绿色「已修」角标。</li>
+              <li>未完成修图的 RAW/PSD 会显示深色「未修」角标，方便筛选和跟进。</li>
+              <li>通过工具栏的「修图筛选」下拉可以按全部 / 已修 / 未修筛选分组。</li>
+            </ul>
+          </section>
+          <section class="viewer-help__section">
+            <h2>4. 外部应用打开</h2>
+            <ul>
+              <li>在缩略图右键选择「打开（系统默认应用）」或「使用已配置应用打开」。</li>
+              <li>首次为某种扩展名选择应用后，会记住该映射（例如 <code>psd → Photoshop</code>）。</li>
+              <li>大图视图顶部也提供「外部应用打开」按钮，行为与右键菜单一致。</li>
+            </ul>
+          </section>
+          <section class="viewer-help__section">
+            <h2>5. 常用快捷键</h2>
+            <ul>
+              <li><kbd>⌘/Ctrl + O</kbd>：打开目录</li>
+              <li><kbd>⌘/Ctrl + R</kbd>：刷新目录</li>
+              <li><kbd>⌘/Ctrl + C</kbd>：复制选中图片路径</li>
+              <li><kbd>⌘/Ctrl + E</kbd>：导出选中图片</li>
+              <li><kbd>⌘/Ctrl + Shift + C</kbd>：复制到其他目录</li>
+              <li><kbd>⌘/Ctrl + Shift + M</kbd>：移动到其他目录</li>
+              <li><kbd>Delete / Backspace</kbd>：删除选中图片</li>
+              <li><kbd>Space</kbd>：打开 / 关闭大图预览</li>
+              <li><kbd>← / →</kbd>：在大图视图中切换上一张 / 下一张</li>
+            </ul>
+          </section>
+          <section class="viewer-help__section">
+            <h2>6. 更多文档</h2>
+            <p>更详细的说明和更新记录请参考安装包中的 <code>docs/UserGuide.md</code> 与 <code>docs/release-notes-*.md</code>。</p>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <div
       v-if="contextMenuState.visible && contextMenuTargetItem"
       class="viewer-context-menu"
@@ -1396,6 +1465,7 @@ const contextMenuState = reactive({
   index: -1,
 });
 const contextMenuRef = ref<HTMLElement | null>(null);
+const helpVisible = ref(false);
 function stopWatchingCurrentDirectory() {
   if (stopWatchingDirectory) {
     stopWatchingDirectory();
@@ -1531,6 +1601,9 @@ onMounted(async () => {
           break;
         case "theme-dark":
           setTheme("dark");
+          break;
+        case "open-help":
+          openHelp();
           break;
         case "open-psd-manager":
           openPsdManager();
@@ -2621,6 +2694,14 @@ async function chooseAppAndSetAsDefault(item: GalleryItem) {
 async function revealContextItem(item: GalleryItem) {
   if (!window.electron?.fileOps) return;
   await window.electron.fileOps.reveal(item.path);
+}
+
+function openHelp() {
+  helpVisible.value = true;
+}
+
+function closeHelp() {
+  helpVisible.value = false;
 }
 
 function replaceSelection(index: number) {
@@ -4989,6 +5070,99 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__nav:disabled {
   opacity: 0.15;
   cursor: not-allowed;
+}
+
+.viewer-help {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-help__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+}
+
+.viewer-help__content {
+  position: relative;
+  z-index: 1;
+  width: min(960px, 96vw);
+  max-height: min(680px, 88vh);
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.85);
+  color: #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.viewer-help__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.viewer-help__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.viewer-help__close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.viewer-help__close:hover {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.viewer-help__body {
+  padding: 12px 20px 18px;
+  overflow: auto;
+  font-size: 13px;
+}
+
+.viewer-help__section {
+  margin-bottom: 14px;
+}
+
+.viewer-help__section h2 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.viewer-help__section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.viewer-help__section li {
+  margin: 3px 0;
+}
+
+.viewer-help__section kbd {
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.9);
+  font-size: 11px;
 }
 
 .viewer-context-menu {
