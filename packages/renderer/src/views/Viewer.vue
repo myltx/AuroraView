@@ -609,7 +609,8 @@
             v-if="hasImages"
             class="viewer-gallery"
             :style="galleryStyle"
-            ref="galleryRef">
+            ref="galleryRef"
+            @click="handleGalleryBackgroundClick">
             <div
               class="viewer-gallery__spacer"
               :style="{ height: `${topSpacer}px` }"></div>
@@ -619,12 +620,15 @@
                 :key="item.path"
                 class="viewer-gallery__item"
                 :class="{
-                  'is-active': startIndex + offset === currentIndex,
+                  'is-active':
+                    selectedIndexes.has(startIndex + offset) &&
+                    startIndex + offset === currentIndex,
                   'is-selected': selectedIndexes.has(startIndex + offset),
                 }"
                 draggable="true"
                 @click="handleGallerySelection($event, startIndex + offset)"
                 @dblclick.prevent="openLightbox(startIndex + offset)"
+                @contextmenu.prevent="handleGalleryContextMenu(startIndex + offset, $event)"
                 @dragstart="handleGalleryDragStart($event, startIndex + offset)"
                 @dragend="handleGalleryDragEnd">
                 <div
@@ -744,7 +748,7 @@
               </span>
             </div>
           </div>
-          <div class="viewer-lightbox__header-actions">
+            <div class="viewer-lightbox__header-actions">
             <div class="viewer-lightbox__controls">
               <button
                 class="viewer-lightbox__toolbar-btn"
@@ -768,6 +772,15 @@
                 @click="runViewerAction(resetLightboxView)">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path :d="TOOLBAR_ICONS.reset" />
+                </svg>
+              </button>
+              <button
+                v-if="canOpenCurrentExternally"
+                class="viewer-lightbox__toolbar-btn"
+                :title="`使用外部应用打开${currentExtension ? ` (.${currentExtension})` : ''}`"
+                @click="openCurrentInExternalApp">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="TOOLBAR_ICONS.psdManager" />
                 </svg>
               </button>
             </div>
@@ -824,6 +837,37 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <div
+      v-if="contextMenuState.visible && contextMenuTargetItem"
+      class="viewer-context-menu"
+      :style="{ top: `${contextMenuState.y}px`, left: `${contextMenuState.x}px` }"
+      ref="contextMenuRef">
+      <button
+        class="viewer-context-menu__item"
+        @click.stop="contextMenuTargetItem && openItemWithSystemDefault(contextMenuTargetItem); closeContextMenu()">
+        打开（系统默认应用）
+      </button>
+      <button
+        v-if="contextMenuTargetItem"
+        class="viewer-context-menu__item"
+        @click.stop="revealContextItem(contextMenuTargetItem); closeContextMenu()">
+        在 Finder 中显示
+      </button>
+      <div class="viewer-context-menu__separator"></div>
+      <button
+        v-if="contextMenuTargetItem && contextMenuTargetExtension && getOpenAppForExtension(contextMenuTargetExtension)"
+        class="viewer-context-menu__item"
+        @click.stop="contextMenuTargetItem && openItemWithMappedApp(contextMenuTargetItem); closeContextMenu()">
+        使用已配置应用打开（.{{ contextMenuTargetExtension }}）
+      </button>
+      <button
+        v-if="contextMenuTargetItem"
+        class="viewer-context-menu__item"
+        @click.stop="contextMenuTargetItem && chooseAppAndSetAsDefault(contextMenuTargetItem); closeContextMenu()">
+        选择应用并设为 .{{ contextMenuTargetExtension || "当前类型" }} 默认打开方式…
+      </button>
     </div>
 
     <div class="viewer-toasts">
@@ -1006,6 +1050,7 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set(
 const selectedRatingFilters = ref<Set<number>>(new Set());
 const ratedImages = ref<Map<string, number>>(new Map());
 const hoverRating = ref<number | null>(null);
+const openWithMap = ref<Record<string, string>>({});
 const allFavoriteEntries = ref<FavoriteEntry[]>([]);
 const toasts = ref<ToastMessage[]>([]);
 const toastTimers = new Map<number, ReturnType<typeof window.setTimeout>>();
@@ -1162,6 +1207,10 @@ const currentMetadata = computed(() => galleryItems.value[currentIndex.value]);
 const currentGalleryItem = computed(
   () => galleryItems.value[currentIndex.value]
 );
+const currentExtension = computed(() =>
+  currentGalleryItem.value ? getExtensionForItem(currentGalleryItem.value) : ""
+);
+const canOpenCurrentExternally = computed(() => !!currentGalleryItem.value);
 const selectedCount = computed(() => selectedIndexes.value.size);
 const hasSelection = computed(() => selectedIndexes.value.size > 0);
 const selectedGalleryItems = computed(() =>
@@ -1230,6 +1279,13 @@ const thumbnailCache = useThumbnailCache();
 let cleanupAppAction: (() => void) | null = null;
 let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
 let unsubscribeThemeState: (() => void) | null = null;
+const contextMenuState = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  index: -1,
+});
+const contextMenuRef = ref<HTMLElement | null>(null);
 function stopWatchingCurrentDirectory() {
   if (stopWatchingDirectory) {
     stopWatchingDirectory();
@@ -1277,6 +1333,17 @@ onMounted(async () => {
   await bootstrapSidebar();
   setupGalleryObservers();
   window.addEventListener("keydown", handleKeydown);
+
+  // 加载“按扩展名打开方式”的用户配置
+  try {
+    const prefs = await window.electron?.preferences?.get?.();
+    if (prefs?.openWith && typeof prefs.openWith === "object") {
+      openWithMap.value = { ...prefs.openWith };
+    }
+  } catch (error) {
+    console.error("加载打开方式配置失败", error);
+  }
+
   const initialTheme = getTheme();
   themePreference.value = initialTheme.preference;
   themeMode.value = initialTheme.mode;
@@ -1315,6 +1382,12 @@ onMounted(async () => {
       const themeEl = themeMenuRef.value;
       if (themeEl && !themeEl.contains(target)) {
         closeThemeMenu();
+      }
+    }
+    if (contextMenuState.visible) {
+      const menuEl = contextMenuRef.value;
+      if (menuEl && !menuEl.contains(target)) {
+        closeContextMenu();
       }
     }
   };
@@ -2072,6 +2145,8 @@ async function showAllRatedImages(options: RatingGalleryOptions = {}) {
 
   imageList.value = items;
   currentIndex.value = 0;
+  selectedIndexes.value = new Set();
+  lastSelectedIndex.value = null;
   lightboxVisible.value = false;
   resetLightboxView();
 }
@@ -2263,6 +2338,27 @@ function isThumbnailReady(resource: string) {
   return thumbnailCache.isReady(resource);
 }
 
+function getExtensionForItem(item: GalleryItem): string {
+  return (item.extension || extractExtension(item.path)).toLowerCase();
+}
+
+async function setOpenAppForExtension(ext: string, appPath: string) {
+  if (!ext || !appPath || !window.electron?.preferences?.set) return;
+  const normalizedExt = ext.toLowerCase();
+  const next = { ...openWithMap.value, [normalizedExt]: appPath };
+  openWithMap.value = next;
+  try {
+    await window.electron.preferences.set("openWith", next);
+  } catch (error) {
+    console.error("保存打开方式配置失败", error);
+  }
+}
+
+function getOpenAppForExtension(ext: string): string | undefined {
+  if (!ext) return undefined;
+  return openWithMap.value[ext.toLowerCase()];
+}
+
 function handleGallerySelection(event: MouseEvent, index: number) {
   const meta = event.metaKey || event.ctrlKey;
   const shift = event.shiftKey;
@@ -2274,6 +2370,104 @@ function handleGallerySelection(event: MouseEvent, index: number) {
     replaceSelection(index);
   }
   lastSelectedIndex.value = index;
+}
+
+const contextMenuTargetItem = computed(() =>
+  contextMenuState.index >= 0 ? galleryItems.value[contextMenuState.index] : null
+);
+
+const contextMenuTargetExtension = computed(() => {
+  const item = contextMenuTargetItem.value;
+  return item ? getExtensionForItem(item) : "";
+});
+
+function closeContextMenu() {
+  contextMenuState.visible = false;
+  contextMenuState.index = -1;
+}
+
+function handleGalleryBackgroundClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target && target.closest(".viewer-gallery__item")) {
+    // 交给单个图片项自己的点击逻辑处理
+    return;
+  }
+  // 点击画廊空白区域时，清空多选
+  if (selectedIndexes.value.size > 0) {
+    selectedIndexes.value = new Set();
+    lastSelectedIndex.value = null;
+  }
+}
+
+async function openCurrentInExternalApp() {
+  if (!window.electron?.fileOps) return;
+  const item = currentGalleryItem.value;
+  if (!item) return;
+  const ext = getExtensionForItem(item);
+  const mappedApp = getOpenAppForExtension(ext);
+
+  if (mappedApp) {
+    await window.electron.fileOps.openWithChooser(item.path, mappedApp);
+    return;
+  }
+
+  const chooseAndSave = window.confirm(
+    `尚未为 .${ext || "该类型"} 配置默认打开应用。\n\n按“确定”：选择应用并设为该格式默认打开方式\n按“取消”：使用系统默认应用打开`
+  );
+  if (chooseAndSave) {
+    const selectedApp = await window.electron.fileOps.openWithChooser(
+      item.path
+    );
+    if (selectedApp) {
+      await setOpenAppForExtension(ext, selectedApp);
+    }
+  } else {
+    await window.electron.fileOps.open(item.path);
+  }
+}
+
+function handleGalleryContextMenu(index: number, event: MouseEvent) {
+  event.preventDefault();
+  const item = galleryItems.value[index];
+  if (!item) return;
+  // 右键时将当前项设为选中，方便后续操作保持一致
+  replaceSelection(index);
+  contextMenuState.visible = true;
+  contextMenuState.index = index;
+  contextMenuState.x = event.clientX;
+  contextMenuState.y = event.clientY;
+}
+
+async function openItemWithSystemDefault(item: GalleryItem) {
+  if (!window.electron?.fileOps) return;
+  await window.electron.fileOps.open(item.path);
+}
+
+async function openItemWithMappedApp(item: GalleryItem) {
+  if (!window.electron?.fileOps) return;
+  const ext = getExtensionForItem(item);
+  const mappedApp = getOpenAppForExtension(ext);
+  if (!mappedApp) {
+    await chooseAppAndSetAsDefault(item);
+    return;
+  }
+  await window.electron.fileOps.openWithChooser(item.path, mappedApp);
+}
+
+async function chooseAppAndSetAsDefault(item: GalleryItem) {
+  if (!window.electron?.fileOps) return;
+  const ext = getExtensionForItem(item);
+  const selectedApp = await window.electron.fileOps.openWithChooser(
+    item.path
+  );
+  if (selectedApp) {
+    await setOpenAppForExtension(ext, selectedApp);
+  }
+}
+
+async function revealContextItem(item: GalleryItem) {
+  if (!window.electron?.fileOps) return;
+  await window.electron.fileOps.reveal(item.path);
 }
 
 function replaceSelection(index: number) {
@@ -4638,6 +4832,39 @@ async function moveSelectedToDirectory() {
 .viewer-lightbox__nav:disabled {
   opacity: 0.15;
   cursor: not-allowed;
+}
+
+.viewer-context-menu {
+  position: fixed;
+  z-index: 40;
+  min-width: 220px;
+  padding: 6px 0;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+
+.viewer-context-menu__item {
+  width: 100%;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #e5e7eb;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.viewer-context-menu__item:hover {
+  background: rgba(51, 65, 85, 0.9);
+}
+
+.viewer-context-menu__separator {
+  height: 1px;
+  margin: 4px 0;
+  background: rgba(148, 163, 184, 0.4);
 }
 
 .viewer {

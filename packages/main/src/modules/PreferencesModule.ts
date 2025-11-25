@@ -30,6 +30,9 @@ export function createPreferencesModule(): AppModule {
           nativeTheme.themeSource = toNativeThemeSource(updated.themePreference);
           return updated;
         }
+        if (key === "openWith" && value) {
+          return service.set("openWith", value);
+        }
         return service.getAll();
       });
     },

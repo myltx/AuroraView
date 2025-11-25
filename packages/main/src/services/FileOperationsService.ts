@@ -2,6 +2,7 @@ import { shell } from "electron";
 import { rename, copyFile, mkdir, access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
+import { spawn } from "node:child_process";
 
 export class FileOperationsService {
   async deleteItems(paths: string[]) {
@@ -16,6 +17,16 @@ export class FileOperationsService {
   revealInFinder(path: string) {
     if (!path) return;
     shell.showItemInFolder(path);
+  }
+
+  async openItem(path: string) {
+    if (!path) return;
+    try {
+      // 使用系统关联的默认应用打开文件，例如预览、PS 等
+      await shell.openPath(path);
+    } catch (error) {
+      console.error("打开文件失败", path, error);
+    }
   }
 
   async renameItem(path: string, newName: string) {
@@ -86,6 +97,27 @@ export class FileOperationsService {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  async openWith(path: string, appPath: string) {
+    if (!path || !appPath) return;
+    if (process.platform === "darwin") {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn("open", ["-a", appPath, path]);
+          child.on("error", reject);
+          child.on("exit", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`open -a exited with code ${code}`));
+          });
+        });
+      } catch (error) {
+        console.error("使用指定应用打开文件失败", { path, appPath, error });
+      }
+    } else {
+      // 非 macOS 平台暂时退回默认方式
+      await this.openItem(path);
     }
   }
 }

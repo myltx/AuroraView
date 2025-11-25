@@ -57,6 +57,7 @@ type ThemeMode = "light" | "dark";
 type ThemePreference = "auto" | ThemeMode;
 type UserPreferences = {
   themePreference: ThemePreference;
+  openWith?: Record<string, string>;
 };
 
 type AppActionPayload = {
@@ -189,6 +190,10 @@ const electronAPI = {
       ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_DELETE, { paths }) as Promise<void>,
     reveal: (path: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_REVEAL, { path }) as Promise<void>,
+    open: (path: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_OPEN, { path }) as Promise<void>,
+    openWithChooser: (path: string, appPath?: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_OPEN_WITH_CHOOSER, { path, appPath }) as Promise<string | undefined>,
     rename: (path: string, newName: string) =>
       ipcRenderer.invoke(IPC_CHANNELS.FILEOPS_RENAME, { path, newName }) as Promise<string | void>,
     export: (paths: string[], destination: string) =>

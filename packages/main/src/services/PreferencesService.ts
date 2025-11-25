@@ -7,11 +7,14 @@ export type ThemePreference = "auto" | "light" | "dark";
 
 export type UserPreferences = {
   themePreference: ThemePreference;
+  // 按扩展名记录默认打开应用，例如 { psd: "/Applications/Adobe Photoshop 2024.app" }
+  openWith: Record<string, string>;
 };
 
 const PREFERENCES_FILE = "preferences.json";
 const DEFAULT_PREFERENCES: UserPreferences = {
   themePreference: "auto",
+  openWith: {},
 };
 
 export class PreferencesService {

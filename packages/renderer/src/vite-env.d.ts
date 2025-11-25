@@ -53,6 +53,7 @@ interface DirectoryChangePayload {
 
 interface UserPreferences {
   themePreference: ThemePreference;
+  openWith?: Record<string, string>;
 }
 
 interface PsdMetadata {
@@ -106,6 +107,8 @@ interface FavoritesAPI {
 interface FileOperationsAPI {
   delete: (paths: string[]) => Promise<void>;
   reveal: (path: string) => Promise<void>;
+  open: (path: string) => Promise<void>;
+  openWithChooser: (path: string, appPath?: string) => Promise<string | undefined>;
   rename: (path: string, newName: string) => Promise<string | void>;
   export: (paths: string[], destination: string) => Promise<string[] | void>;
   move: (paths: string[], destination: string) => Promise<string[] | void>;

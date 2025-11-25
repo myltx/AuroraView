@@ -14,6 +14,8 @@ export const IPC_CHANNELS = {
   FILEOPS_EXPORT: "fileops:export",
   FILEOPS_MOVE: "fileops:move",
   FILEOPS_COPY: "fileops:copy",
+  FILEOPS_OPEN: "fileops:open",
+  FILEOPS_OPEN_WITH_CHOOSER: "fileops:open-with-chooser",
   FS_WATCH_DIRECTORY: "fs:watch-directory",
   FS_UNWATCH_DIRECTORY: "fs:unwatch-directory",
   FS_DIRECTORY_CHANGED: "fs:directory-changed",
