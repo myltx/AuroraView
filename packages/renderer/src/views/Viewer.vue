@@ -944,6 +944,7 @@ import { useSlideshow } from "../composables/useSlideshow";
 import { useThumbnailCache } from "../composables/useThumbnailCache";
 import { useSystemTheme } from "../composables/useSystemTheme";
 import { usePsdMetadata } from "../composables/usePsdMetadata";
+import type { PsdGroup } from "../types/psd";
 import { ALL_IMAGE_EXTENSIONS } from "@app/main/src/constants/imageExtensions";
 import type { ThemeMode, ThemePreference } from "../types/theme";
 import {
@@ -1161,11 +1162,6 @@ const sortOptions: Array<{ value: SortMode; label: string }> = [
   { value: "size-desc", label: "文件大小" },
   { value: "type-asc", label: "文件类型" },
 ];
-const themeOptions: Array<{ value: ThemePreference; label: string }> = [
-  { value: "auto", label: "自动" },
-  { value: "light", label: "浅色" },
-  { value: "dark", label: "深色" },
-];
 const { setTheme, getTheme, subscribe: subscribeTheme } = useSystemTheme();
 const themePreference = ref<ThemePreference>(getTheme().preference);
 const themeMode = ref<ThemeMode>(getTheme().mode);
@@ -1176,9 +1172,6 @@ const {
   flipX,
   flipY,
   offset,
-  rotate,
-  toggleFlipX,
-  toggleFlipY,
   setScale,
   setOffset,
   resetView,
@@ -2134,12 +2127,6 @@ watch(lightboxVisible, (value) => {
     closeViewerMenu();
   }
 });
-
-const toggleSlideshow = () => {
-  if (!canPlaySlideshow.value) return;
-  playing.value = !playing.value;
-};
-const toggleFullscreen = () => window.electron?.toggleFullscreen();
 const zoomStep = 0.2;
 
 const zoomIn = () => zoomTo(scale.value + zoomStep);
@@ -2389,33 +2376,6 @@ async function removeFavorite(id: string) {
 
 function getImageRating(path: string): number | undefined {
   return ratedImages.value.get(path);
-}
-
-function handleRatingClick(
-  event: MouseEvent | KeyboardEvent,
-  item: GalleryItem
-) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  const currentRating = getImageRating(item.path);
-  const target = event.target as HTMLElement;
-  const starElement = target.closest(
-    ".viewer-gallery__rating-star"
-  ) as HTMLElement;
-
-  if (!starElement || !starElement.parentElement) return;
-
-  const stars = Array.from(starElement.parentElement.children);
-  const starIndex = stars.indexOf(starElement);
-  const newRating = starIndex + 1;
-
-  // 如果点击的是当前评级，则取消评级
-  if (currentRating === newRating) {
-    setImageRating(item.path, 0);
-  } else {
-    setImageRating(item.path, newRating);
-  }
 }
 
 function handleLightboxRatingClick(rating: number) {
@@ -3074,6 +3034,10 @@ function selectThemePreference(value: ThemePreference) {
   setTheme(value);
   closeThemeMenu();
 }
+
+// 提示 TypeScript：这些函数会在模板中被使用，避免 noUnusedLocals 报错
+void toggleThemeMenu;
+void selectThemePreference;
 
 function runViewerAction(fn: () => void) {
   fn();

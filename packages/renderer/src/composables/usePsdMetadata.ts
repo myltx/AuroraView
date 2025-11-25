@@ -1,4 +1,5 @@
 import { reactive, readonly } from "vue";
+import type { PsdGroup } from "../types/psd";
 
 const editedMap = reactive(new Map<string, boolean>());
 
