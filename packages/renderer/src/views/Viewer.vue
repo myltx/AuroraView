@@ -144,6 +144,57 @@
             </button>
           </div>
 
+          <div
+            v-if="hasAnySourceImages && !isRatingCollectionView"
+            class="toolbar-dropdown toolbar-dropdown--icon toolbar-interactive"
+            :class="{ 'is-open': editMenuOpen }"
+            ref="editMenuRef">
+            <button
+              class="toolbar-dropdown__trigger toolbar-dropdown__trigger--icon"
+              :title="editStatusLabel"
+              aria-label="修图筛选"
+              @click="toggleEditMenu">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path :d="TOOLBAR_ICONS.psdManager" />
+              </svg>
+            </button>
+            <div
+              v-if="editMenuOpen"
+              class="toolbar-dropdown__menu"
+              role="menu">
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="editStatusFilter === 'all'"
+                @click="() => selectEditFilter('all')">
+                <span class="toolbar-dropdown__check">
+                  {{ editStatusFilter === "all" ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">全部</span>
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="editStatusFilter === 'edited'"
+                @click="() => selectEditFilter('edited')">
+                <span class="toolbar-dropdown__check">
+                  {{ editStatusFilter === "edited" ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">已修</span>
+              </button>
+              <button
+                class="toolbar-dropdown__item"
+                role="menuitemradio"
+                :aria-checked="editStatusFilter === 'unedited'"
+                @click="() => selectEditFilter('unedited')">
+                <span class="toolbar-dropdown__check">
+                  {{ editStatusFilter === "unedited" ? "✓" : "" }}
+                </span>
+                <span class="toolbar-dropdown__label">未修</span>
+              </button>
+            </div>
+          </div>
+
           <div class="toolbar-search">
             <svg
               class="toolbar-search__icon"
@@ -638,16 +689,17 @@
                     :src="getThumbnailSrc(item.resource)"
                     :alt="item.name"
                     loading="lazy" />
+                  <EditStatusBadge :status="getEditStatusForItem(item)" />
                 </div>
                 <p class="viewer-gallery__caption" :title="item.name">
                   <button
-                    v-if="item.extension === 'psd'"
+                    v-if="(item.extension || '').toLowerCase() === 'psd'"
                     type="button"
                     class="psd-tag"
                     :class="{ 'psd-tag--active': isPsdEdited(item.path) }"
                     :title="isPsdEdited(item.path) ? '标记为未修' : '标记为已修'"
                     @click.stop="togglePsdEdited(item.path)">
-                    {{ isPsdEdited(item.path) ? "已修" : "未修" }}
+                    {{ isPsdEdited(item.path) ? "已修" : "标记为已修" }}
                   </button>
                   {{ item.name }}
                 </p>
@@ -886,6 +938,7 @@
 
 <script setup lang="ts">
 import ImageCanvas from "../components/ImageCanvas.vue";
+import EditStatusBadge from "../components/EditStatusBadge.vue";
 import { useImageViewer } from "../composables/useImageViewer";
 import { useSlideshow } from "../composables/useSlideshow";
 import { useThumbnailCache } from "../composables/useThumbnailCache";
@@ -1048,6 +1101,10 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set(
   ALL_IMAGE_EXTENSIONS.map((ext: string) => ext.toLowerCase())
 );
 const selectedRatingFilters = ref<Set<number>>(new Set());
+type EditStatusFilter = "all" | "edited" | "unedited";
+const editStatusFilter = ref<EditStatusFilter>("all");
+const editMenuOpen = ref(false);
+const editMenuRef = ref<HTMLElement | null>(null);
 const ratedImages = ref<Map<string, number>>(new Map());
 const hoverRating = ref<number | null>(null);
 const openWithMap = ref<Record<string, string>>({});
@@ -1172,6 +1229,18 @@ const sortedItems = computed(() => {
   }
 });
 
+const RAW_LIKE_EXTENSIONS = new Set([
+  "dng",
+  "raw",
+  "nef",
+  "cr2",
+  "cr3",
+  "arw",
+  "raf",
+  "orf",
+  "rw2",
+]);
+
 const galleryItems = computed(() => {
   let items = sortedItems.value;
 
@@ -1181,6 +1250,53 @@ const galleryItems = computed(() => {
       const rating = ratedImages.value.get(item.path);
       return rating !== undefined && selectedRatingFilters.value.has(rating);
     });
+  }
+
+  // 按“修图状态”筛选（按同名分组，展示同组所有格式）
+  if (editStatusFilter.value !== "all") {
+    type GroupInfo = {
+      hasPsd: boolean;
+      psdEdited: boolean;
+      hasRawLike: boolean;
+    };
+    const groups = new Map<string, GroupInfo>();
+
+    const getBaseName = (name: string) => name.replace(/\.[^.]+$/, "");
+
+    for (const item of items) {
+      const base = getBaseName(item.name);
+      const ext = (item.extension || "").toLowerCase();
+      let info = groups.get(base);
+      if (!info) {
+        info = { hasPsd: false, psdEdited: false, hasRawLike: false };
+        groups.set(base, info);
+      }
+      if (ext === "psd") {
+        info.hasPsd = true;
+        if (isPsdEdited(item.path)) {
+          info.psdEdited = true;
+        }
+      }
+      if (RAW_LIKE_EXTENSIONS.has(ext)) {
+        info.hasRawLike = true;
+      }
+    }
+
+    const allowedBases = new Set<string>();
+    for (const [base, info] of groups) {
+      const isEdited = info.hasPsd && info.psdEdited;
+      const isUnedited = !isEdited && (info.hasRawLike || info.hasPsd);
+      if (
+        (editStatusFilter.value === "edited" && isEdited) ||
+        (editStatusFilter.value === "unedited" && isUnedited)
+      ) {
+        allowedBases.add(base);
+      }
+    }
+
+    items = items.filter((item) =>
+      allowedBases.has(getBaseName(item.name))
+    );
   }
 
   // 搜索筛选
@@ -1199,6 +1315,7 @@ const galleryItems = computed(() => {
 });
 
 const hasImages = computed(() => galleryItems.value.length > 0);
+const hasAnySourceImages = computed(() => imageList.value.length > 0);
 const canPlaySlideshow = computed(() => galleryItems.value.length > 1);
 const currentImage = computed(
   () => galleryItems.value[currentIndex.value]?.resource ?? ""
@@ -1364,6 +1481,12 @@ onMounted(async () => {
       const sortEl = sortMenuRef.value;
       if (sortEl && !sortEl.contains(target)) {
         closeSortMenu();
+      }
+    }
+    if (editMenuOpen.value) {
+      const editEl = editMenuRef.value;
+      if (editEl && !editEl.contains(target)) {
+        editMenuOpen.value = false;
       }
     }
     if (viewModeMenuOpen.value) {
@@ -1734,6 +1857,27 @@ function syncCustomNodes() {
   });
 }
 
+const editStatusLabel = computed(() => {
+  switch (editStatusFilter.value) {
+    case "edited":
+      return "筛选：已修图片";
+    case "unedited":
+      return "筛选：未修图片";
+    case "all":
+    default:
+      return "修图筛选：全部图片";
+  }
+});
+
+function toggleEditMenu() {
+  editMenuOpen.value = !editMenuOpen.value;
+}
+
+function selectEditFilter(value: EditStatusFilter) {
+  editStatusFilter.value = value;
+  editMenuOpen.value = false;
+}
+
 function setViewMode(mode: ViewMode) {
   viewMode.value = mode;
   closeViewModeMenu();
@@ -1881,6 +2025,10 @@ async function activateDirectory(target: DirectoryTarget) {
   if (path !== RATING_COLLECTION_PATH) {
     selectedRatingFilters.value = new Set();
   }
+
+  // 切换目录时重置修图筛选为“全部”
+  editStatusFilter.value = "all";
+  editMenuOpen.value = false;
 
   activeNodePath.value = path;
   await loadImagesForDirectory(path);
@@ -2357,6 +2505,51 @@ async function setOpenAppForExtension(ext: string, appPath: string) {
 function getOpenAppForExtension(ext: string): string | undefined {
   if (!ext) return undefined;
   return openWithMap.value[ext.toLowerCase()];
+}
+
+function isRawUnedited(item: GalleryItem): boolean {
+  const ext = (item.extension || "").toLowerCase();
+  if (!RAW_LIKE_EXTENSIONS.has(ext)) return false;
+
+  // 使用与“修图状态”筛选一致的判定逻辑
+  const base = item.name.replace(/\.[^.]+$/, "");
+  const groupItems = imageList.value.filter((it) =>
+    it.name.replace(/\.[^.]+$/, "") === base
+  );
+
+  let hasPsd = false;
+  let psdEdited = false;
+  let hasRawLike = false;
+
+  for (const it of groupItems) {
+    const itExt = (it.extension || "").toLowerCase();
+    if (itExt === "psd") {
+      hasPsd = true;
+      if (isPsdEdited(it.path)) {
+        psdEdited = true;
+      }
+    }
+    if (RAW_LIKE_EXTENSIONS.has(itExt)) {
+      hasRawLike = true;
+    }
+  }
+
+  const isEdited = hasPsd && psdEdited;
+  const isUnedited = !isEdited && (hasRawLike || hasPsd);
+  return isUnedited;
+}
+
+type EditStatus = "edited" | "unedited" | "none";
+
+function getEditStatusForItem(item: GalleryItem): EditStatus {
+  const ext = (item.extension || "").toLowerCase();
+  if (ext === "psd") {
+    return isPsdEdited(item.path) ? "edited" : "none";
+  }
+  if (isRawUnedited(item)) {
+    return "unedited";
+  }
+  return "none";
 }
 
 function handleGallerySelection(event: MouseEvent, index: number) {
