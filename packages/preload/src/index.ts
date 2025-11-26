@@ -55,13 +55,33 @@ type DirectoryChangePayload = {
 
 type ThemeMode = "light" | "dark";
 type ThemePreference = "auto" | ThemeMode;
+type PerformanceProfile = "balanced" | "fast" | "eco";
+
 type UserPreferences = {
   themePreference: ThemePreference;
   openWith?: Record<string, string>;
+  performanceProfile?: PerformanceProfile;
 };
 
 type AppActionPayload = {
-  type: "open-directory" | "refresh-directory";
+  type:
+    | "open-directory"
+    | "refresh-directory"
+    | "view-mode-regular"
+    | "view-mode-compact"
+    | "theme-auto"
+    | "theme-light"
+    | "theme-dark"
+    | "open-help"
+    | "open-psd-manager"
+    | "file-copy-paths"
+    | "file-copy-to-directory"
+    | "file-move-to-directory"
+    | "file-export"
+    | "file-delete"
+    | "perf-balanced"
+    | "perf-fast"
+    | "perf-eco";
 };
 
 type PsdMetadata = {

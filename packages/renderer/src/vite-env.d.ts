@@ -51,9 +51,12 @@ interface DirectoryChangePayload {
   targetPath?: string;
 }
 
+type PerformanceProfile = "balanced" | "fast" | "eco";
+
 interface UserPreferences {
   themePreference: ThemePreference;
   openWith?: Record<string, string>;
+  performanceProfile?: PerformanceProfile;
 }
 
 interface PsdMetadata {
@@ -143,7 +146,10 @@ type AppActionPayload = {
     | "file-copy-to-directory"
     | "file-move-to-directory"
     | "file-export"
-    | "file-delete";
+    | "file-delete"
+    | "perf-balanced"
+    | "perf-fast"
+    | "perf-eco";
 };
 
 interface PsdAPI {

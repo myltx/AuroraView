@@ -18,7 +18,10 @@ type AppMenuAction =
   | "file-copy-to-directory"
   | "file-move-to-directory"
   | "file-export"
-  | "file-delete";
+  | "file-delete"
+  | "perf-balanced"
+  | "perf-fast"
+  | "perf-eco";
 
 function dispatchAction(type: AppMenuAction) {
   const win =
@@ -160,6 +163,27 @@ export function createApplicationMenuModule(): AppModule {
                   label: "深色",
                   type: "radio",
                   click: () => dispatchAction("theme-dark"),
+                },
+              ] as MenuItemConstructorOptions[],
+            },
+            {
+              label: "性能模式",
+              submenu: [
+                {
+                  label: "平衡（推荐）",
+                  type: "radio",
+                  checked: true,
+                  click: () => dispatchAction("perf-balanced"),
+                },
+                {
+                  label: "性能优先",
+                  type: "radio",
+                  click: () => dispatchAction("perf-fast"),
+                },
+                {
+                  label: "省资源",
+                  type: "radio",
+                  click: () => dispatchAction("perf-eco"),
                 },
               ] as MenuItemConstructorOptions[],
             },

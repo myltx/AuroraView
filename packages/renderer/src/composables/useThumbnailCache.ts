@@ -1,4 +1,4 @@
-import { onBeforeUnmount, reactive } from "vue";
+import { onBeforeUnmount, reactive, ref } from "vue";
 
 type CacheStore = Record<string, string | undefined>;
 
@@ -7,14 +7,17 @@ type ThumbnailCacheOptions = {
   targetSize?: number;
   mimeType?: string;
   quality?: number;
+  maxInflight?: number;
 };
 
-const DEFAULT_OPTIONS: Required<ThumbnailCacheOptions> = {
+const DEFAULT_OPTIONS: Required<Omit<ThumbnailCacheOptions, "maxInflight">> = {
   maxEntries: 400,
   targetSize: 256,
   mimeType: "image/webp",
   quality: 0.92,
 };
+
+const DEFAULT_MAX_INFLIGHT = 8;
 
 export function useThumbnailCache(options: ThumbnailCacheOptions = {}) {
   const { maxEntries, targetSize, mimeType, quality } = {
@@ -22,9 +25,17 @@ export function useThumbnailCache(options: ThumbnailCacheOptions = {}) {
     ...options,
   };
 
+  const maxInflight = ref(
+    typeof options.maxInflight === "number"
+      ? Math.max(1, options.maxInflight | 0)
+      : DEFAULT_MAX_INFLIGHT
+  );
+
   const store = reactive<CacheStore>({});
   const inflight = new Map<string, Promise<void>>();
   const order: string[] = [];
+  const queue: string[] = [];
+  const queued = new Set<string>();
 
   function set(resource: string, url: string) {
     if (!store[resource]) {
@@ -94,20 +105,50 @@ export function useThumbnailCache(options: ThumbnailCacheOptions = {}) {
     }
   }
 
+  function drainQueue() {
+    while (inflight.size < maxInflight.value && queue.length > 0) {
+      const resource = queue.shift();
+      if (!resource) {
+        continue;
+      }
+      queued.delete(resource);
+      if (!resource || store[resource] || inflight.has(resource)) {
+        continue;
+      }
+
+      const request = generateThumbnail(resource)
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          set(resource, url);
+        })
+        .catch((error) => {
+          console.warn(
+            "[ThumbnailCache] Failed to fetch resource",
+            resource,
+            error
+          );
+        })
+        .finally(() => {
+          inflight.delete(resource);
+          drainQueue();
+        });
+
+      inflight.set(resource, request);
+    }
+  }
+
   function prefetch(resource: string) {
-    if (!resource || store[resource] || inflight.has(resource)) return;
-    const request = generateThumbnail(resource)
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        set(resource, url);
-      })
-      .catch((error) => {
-        console.warn("[ThumbnailCache] Failed to fetch resource", resource, error);
-      })
-      .finally(() => {
-        inflight.delete(resource);
-      });
-    inflight.set(resource, request);
+    if (
+      !resource ||
+      store[resource] ||
+      inflight.has(resource) ||
+      queued.has(resource)
+    ) {
+      return;
+    }
+    queued.add(resource);
+    queue.push(resource);
+    drainQueue();
   }
 
   function prefetchMany(resources: string[]) {
@@ -151,7 +192,16 @@ export function useThumbnailCache(options: ThumbnailCacheOptions = {}) {
       delete store[resource];
     });
     order.splice(0, order.length);
+    queue.splice(0, queue.length);
+    queued.clear();
     inflight.clear();
+  }
+
+  function setMaxInflight(next: number) {
+    const normalized = Math.max(1, next | 0);
+    if (normalized === maxInflight.value) return;
+    maxInflight.value = normalized;
+    drainQueue();
   }
 
   onBeforeUnmount(() => {
@@ -165,5 +215,6 @@ export function useThumbnailCache(options: ThumbnailCacheOptions = {}) {
     isReady,
     retain,
     clear,
+    setMaxInflight,
   };
 }

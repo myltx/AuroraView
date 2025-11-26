@@ -33,6 +33,9 @@ export function createPreferencesModule(): AppModule {
         if (key === "openWith" && value) {
           return service.set("openWith", value);
         }
+        if (key === "performanceProfile" && value) {
+          return service.set("performanceProfile", value);
+        }
         return service.getAll();
       });
     },

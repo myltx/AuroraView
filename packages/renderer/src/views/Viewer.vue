@@ -1139,6 +1139,8 @@ type DirectorySnapshot = {
 };
 
 type ViewMode = "regular" | "compact";
+type PerformanceProfile = "balanced" | "fast" | "eco";
+
 const imageList = ref<GalleryItem[]>([]);
 const currentIndex = ref(0);
 const viewMode = ref<ViewMode>("regular");
@@ -1146,6 +1148,7 @@ const VIEW_MODE_SIZES: Record<ViewMode, number> = {
   regular: 128,
   compact: 96,
 };
+const performanceProfile = ref<PerformanceProfile>("balanced");
 const searchQuery = ref("");
 const sortMode = ref<SortMode>("name-asc");
 const activeNodePath = ref("");
@@ -1455,6 +1458,34 @@ let momentumFrame: number | null = null;
 let stopWatchingDirectory: (() => void) | null = null;
 let stopWatchingVolumes: (() => void) | null = null;
 const thumbnailCache = useThumbnailCache();
+
+function applyPerformanceProfile(profile: PerformanceProfile) {
+  performanceProfile.value = profile;
+  let maxInflight: number;
+  switch (profile) {
+    case "fast":
+      maxInflight = 12;
+      break;
+    case "eco":
+      maxInflight = 4;
+      break;
+    case "balanced":
+    default:
+      maxInflight = 8;
+      break;
+  }
+  thumbnailCache.setMaxInflight(maxInflight);
+}
+
+async function setPerformanceProfile(profile: PerformanceProfile) {
+  applyPerformanceProfile(profile);
+  try {
+    await window.electron?.preferences?.set?.("performanceProfile", profile);
+  } catch (error) {
+    console.error("保存性能配置失败", error);
+  }
+}
+
 let cleanupAppAction: (() => void) | null = null;
 let handleOutsideClick: ((event: MouseEvent) => void) | null = null;
 let unsubscribeThemeState: (() => void) | null = null;
@@ -1520,8 +1551,15 @@ onMounted(async () => {
     if (prefs?.openWith && typeof prefs.openWith === "object") {
       openWithMap.value = { ...prefs.openWith };
     }
+    const profile = prefs?.performanceProfile;
+    if (profile === "balanced" || profile === "fast" || profile === "eco") {
+      applyPerformanceProfile(profile);
+    } else {
+      applyPerformanceProfile("balanced");
+    }
   } catch (error) {
-    console.error("加载打开方式配置失败", error);
+    console.error("加载用户配置失败", error);
+    applyPerformanceProfile("balanced");
   }
 
   const initialTheme = getTheme();
@@ -1619,6 +1657,15 @@ onMounted(async () => {
           break;
         case "file-export":
           exportSelected();
+          break;
+        case "perf-balanced":
+          setPerformanceProfile("balanced");
+          break;
+        case "perf-fast":
+          setPerformanceProfile("fast");
+          break;
+        case "perf-eco":
+          setPerformanceProfile("eco");
           break;
         case "file-delete":
           deleteSelected();

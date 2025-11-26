@@ -12,8 +12,10 @@ import {
 
 export const LOCAL_FILE_PROTOCOL_SCHEME = "photon-file";
 
-const MAX_CONVERTED_EDGE = 4096;
+const MAX_CONVERTED_EDGE = 2048;
 const CONVERSION_CACHE_LIMIT = 40;
+const MAX_INPUT_PIXELS = 80_000_000;
+const MAX_CONCURRENT_CONVERSIONS = 2;
 
 type ConversionCacheEntry = {
   data: Buffer;
@@ -23,6 +25,8 @@ type ConversionCacheEntry = {
 
 const conversionCache = new Map<string, ConversionCacheEntry>();
 const execFileAsync = promisify(execFile);
+let activeConversions = 0;
+const conversionQueue: Array<() => void> = [];
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -81,7 +85,7 @@ async function convertUsingSharp(filePath: string) {
   const base = sharp
     .default(filePath, {
       failOn: "none",
-      limitInputPixels: 0,
+      limitInputPixels: MAX_INPUT_PIXELS,
       sequentialRead: true,
     })
     .rotate()
@@ -177,74 +181,95 @@ async function extractEmbeddedJpegPreview(filePath: string) {
   return { data: best, mimeType: "image/jpeg" as const };
 }
 
-async function getConvertedImage(filePath: string, ext: string) {
-  const stats = await stat(filePath);
-  const cached = conversionCache.get(filePath);
-  if (cached && cached.mtimeMs === stats.mtimeMs) {
-    return cached;
+async function withConversionSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeConversions >= MAX_CONCURRENT_CONVERSIONS) {
+    await new Promise<void>((resolve) => {
+      conversionQueue.push(resolve);
+    });
   }
 
-  if (process.platform === "darwin") {
-    const quicklook = await generateQuickLookPreview(filePath);
-    if (quicklook) {
-      const entry: ConversionCacheEntry = {
-        ...quicklook,
-        mtimeMs: stats.mtimeMs,
-      };
-      conversionCache.set(filePath, entry);
-      trimConversionCache();
-      return entry;
+  activeConversions += 1;
+  try {
+    return await fn();
+  } finally {
+    activeConversions -= 1;
+    const next = conversionQueue.shift();
+    if (next) {
+      next();
     }
   }
+}
 
-  if (RAW_IMAGE_EXTENSION_SET.has(ext)) {
-    try {
-      const preview = await extractEmbeddedJpegPreview(filePath);
-      if (preview) {
+async function getConvertedImage(filePath: string, ext: string) {
+  return withConversionSlot(async () => {
+    const stats = await stat(filePath);
+    const cached = conversionCache.get(filePath);
+    if (cached && cached.mtimeMs === stats.mtimeMs) {
+      return cached;
+    }
+
+    if (process.platform === "darwin") {
+      const quicklook = await generateQuickLookPreview(filePath);
+      if (quicklook) {
         const entry: ConversionCacheEntry = {
-          ...preview,
+          ...quicklook,
           mtimeMs: stats.mtimeMs,
         };
         conversionCache.set(filePath, entry);
         trimConversionCache();
         return entry;
       }
-    } catch (error) {
-      console.warn(`[LocalFileProtocol] 提取嵌入预览失败(${ext})`, error);
     }
-  }
 
-  try {
-    const converted = await convertUsingSharp(filePath);
-    const entry: ConversionCacheEntry = {
-      ...converted,
-      mtimeMs: stats.mtimeMs,
-    };
+    if (RAW_IMAGE_EXTENSION_SET.has(ext)) {
+      try {
+        const preview = await extractEmbeddedJpegPreview(filePath);
+        if (preview) {
+          const entry: ConversionCacheEntry = {
+            ...preview,
+            mtimeMs: stats.mtimeMs,
+          };
+          conversionCache.set(filePath, entry);
+          trimConversionCache();
+          return entry;
+        }
+      } catch (error) {
+        console.warn(`[LocalFileProtocol] 提取嵌入预览失败(${ext})`, error);
+      }
+    }
+
+    try {
+      const converted = await convertUsingSharp(filePath);
+      const entry: ConversionCacheEntry = {
+        ...converted,
+        mtimeMs: stats.mtimeMs,
+      };
+      conversionCache.set(filePath, entry);
+      trimConversionCache();
+      return entry;
+    } catch (error) {
+      console.warn(`[LocalFileProtocol] sharp 处理失败(${ext})`, error);
+    }
+
+    try {
+      const thumbnail = await convertUsingSystemThumbnail(filePath);
+      const entry: ConversionCacheEntry = {
+        ...thumbnail,
+        mtimeMs: stats.mtimeMs,
+      };
+      conversionCache.set(filePath, entry);
+      trimConversionCache();
+      return entry;
+    } catch (error) {
+      console.warn(`[LocalFileProtocol] 系统缩略图不可用(${ext})`, error);
+    }
+
+    const fallback = await convertUsingNativeImage(filePath);
+    const entry: ConversionCacheEntry = { ...fallback, mtimeMs: stats.mtimeMs };
     conversionCache.set(filePath, entry);
     trimConversionCache();
     return entry;
-  } catch (error) {
-    console.warn(`[LocalFileProtocol] sharp 处理失败(${ext})`, error);
-  }
-
-  try {
-    const thumbnail = await convertUsingSystemThumbnail(filePath);
-    const entry: ConversionCacheEntry = {
-      ...thumbnail,
-      mtimeMs: stats.mtimeMs,
-    };
-    conversionCache.set(filePath, entry);
-    trimConversionCache();
-    return entry;
-  } catch (error) {
-    console.warn(`[LocalFileProtocol] 系统缩略图不可用(${ext})`, error);
-  }
-
-  const fallback = await convertUsingNativeImage(filePath);
-  const entry: ConversionCacheEntry = { ...fallback, mtimeMs: stats.mtimeMs };
-  conversionCache.set(filePath, entry);
-  trimConversionCache();
-  return entry;
+  });
 }
 
 export function createLocalFileProtocolModule(): AppModule {
